@@ -92,15 +92,15 @@ impl Coordinate {
 
 
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
-enum Turn {
+enum Color {
     White,
     Black,
 }
-impl Turn {
+impl Color {
     pub fn from(turn: &str) -> Self {
         match turn {
-            "w" => Turn::White,
-            "b" => Turn::Black,
+            "w" => Color::White,
+            "b" => Color::Black,
             _   => panic!("Invalid FEN (turn)"), // TODO: Handle error
         }
     }
@@ -169,36 +169,40 @@ impl CastlingRights {
             CastlingRights::Both      => "kq",
         }
     }
-    pub fn gen_moves(&self, square: &Square) -> Vec<CastlingMove> {
+    pub fn gen_moves(&self, square: &Square) -> Result<Vec<CastlingMove>, String> {
         // Magic values: king, rook
-        let kingside: CastlingMove = match square {
-            Square::White(_) => [
-                BasicMove::from(&[60, 62], Piece::King),
-                BasicMove::from(&[63, 61], Piece::Rook),
+        let piece = square.piece()?;
+        let color = piece.color;
+        match piece.kind {
+            PieceKind::King => (),
+            _ => return Err(format!("Invalid Square: square {:?} has no color", &square)),
+        }
+        let kingside: CastlingMove = match color {
+            Color::White => [
+                BasicMove::from(&[60, 62], PieceKind::King),
+                BasicMove::from(&[63, 61], PieceKind::Rook),
             ],
-            Square::Black(_) => [
-                BasicMove::from(&[4, 6], Piece::King),
-                BasicMove::from(&[7, 5], Piece::Rook),
+            Color::Black => [
+                BasicMove::from(&[4, 6], PieceKind::King),
+                BasicMove::from(&[7, 5], PieceKind::Rook),
             ],
-            _ => panic!("Attempt to castle empty square"),
         };
-        let queenside: CastlingMove = match square {
-            Square::White(Piece::King) => [
-                    BasicMove::from(&[60, 58], Piece::King),
-                    BasicMove::from(&[56, 59], Piece::Rook),
+        let queenside: CastlingMove = match color {
+            Color::White => [
+                    BasicMove::from(&[60, 58], PieceKind::King),
+                    BasicMove::from(&[56, 59], PieceKind::Rook),
             ],
-            Square::Black(Piece::King) => [
-                    BasicMove::from(&[4, 2], Piece::King),
-                    BasicMove::from(&[0, 3], Piece::Rook),
+            Color::Black => [
+                    BasicMove::from(&[4, 2], PieceKind::King),
+                    BasicMove::from(&[0, 3], PieceKind::Rook),
             ],
-            _ => panic!("Attempt to castle empty square"),
         };
 
         match self {
-            CastlingRights::Neither   => vec![],
-            CastlingRights::Kingside  => vec![kingside],
-            CastlingRights::Queenside => vec![queenside],
-            CastlingRights::Both      => vec![kingside, queenside],
+            CastlingRights::Neither   => Ok(vec![]),
+            CastlingRights::Kingside  => Ok(vec![kingside]),
+            CastlingRights::Queenside => Ok(vec![queenside]),
+            CastlingRights::Both      => Ok(vec![kingside, queenside]),
         }
     }
 }
@@ -221,17 +225,15 @@ impl CastlingState {
             self.black.to_str().to_ascii_lowercase().as_str()
         );
     }
-    // TODO: Handle error
-    pub fn get_moves(&self, square: &Square) -> Vec<Move> {
-        match square {
-            Square::White(Piece::King) => self.white.gen_moves(&square),
-            Square::Black(Piece::King) => self.black.gen_moves(&square),
-            _ => panic!("Attempt to castle non-king square.")
-        }.iter().map(|m| Move::CastlingMove(*m)).collect()
+    pub fn get_moves(&self, square: &Square) -> Result<Vec<Move>, String> {
+        Ok(match square.piece()?.color {
+            Color::White => self.white.gen_moves(&square),
+            Color::Black => self.black.gen_moves(&square),
+        }?.iter().map(|m| Move::CastlingMove(*m)).collect())
     }
 }
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
-pub enum Piece {
+pub enum PieceKind {
     King,
     Queen,
     Rook,
@@ -240,60 +242,88 @@ pub enum Piece {
     Pawn,
 }
 
-impl Piece {
+impl PieceKind {
     pub fn to_char(&self) -> char {
         match self {
-            Piece::King   => 'k',
-            Piece::Queen  => 'q',
-            Piece::Rook   => 'r',
-            Piece::Bishop => 'b',
-            Piece::Knight => 'n',
-            Piece::Pawn   => 'p',
+            PieceKind::King   => 'k',
+            PieceKind::Queen  => 'q',
+            PieceKind::Rook   => 'r',
+            PieceKind::Bishop => 'b',
+            PieceKind::Knight => 'n',
+            PieceKind::Pawn   => 'p',
         }
     }
 
     pub fn from(char: char) -> Self {
         match char {
-            'k' => Piece::King,
-            'q' => Piece::Queen,
-            'r' => Piece::Rook,
-            'b' => Piece::Bishop,
-            'n' => Piece::Knight,
-            'p' => Piece::Pawn,
+            'k' => PieceKind::King,
+            'q' => PieceKind::Queen,
+            'r' => PieceKind::Rook,
+            'b' => PieceKind::Bishop,
+            'n' => PieceKind::Knight,
+            'p' => PieceKind::Pawn,
             _   => panic!("Invalid piece: {}", char), // TODO: Handle error
         }
     }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
+struct Piece {
+    kind: PieceKind,
+    color: Color,
+}
+
+impl Piece {
+    pub fn to_char(&self) -> char {
+        match self.color {
+            Color::White => self.kind.to_char().to_ascii_uppercase(),
+            Color::Black => self.kind.to_char().to_ascii_lowercase(),
+        }
+    }
+
+    pub fn is_same_color(&self, piece: &Piece) -> bool {
+        match (self.color, piece.color,) {
+            (Color::White, Color::White) |
+            (Color::Black, Color::Black) => true,
+            _ => false,
+        }
+    }
+
+    pub fn into(self) -> Square {
+        Square::Some(self)
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
 enum Square {
-    White(Piece),
-    Black(Piece),
+    Some(Piece),
     Empty,
 }
 
 impl Square {
     pub fn to_char(&self) -> char {
         match self {
-            Square::White(piece) => piece.to_char().to_ascii_uppercase(),
-            Square::Black(piece) => piece.to_char().to_ascii_lowercase(),
+            Square::Some(piece) => piece.to_char(),
             Square::Empty => '.',
         }
     }
-
-    pub fn piece(&self) -> Option<&Piece> {
+    pub fn piece(&self) -> Result<&Piece, String> {
         match self {
-            Square::White(piece) => Some(piece),
-            Square::Black(piece) => Some(piece),
-            Square::Empty        => None,
+            Square::Some(piece) => Ok(piece),
+            Square::Empty => Err("Square is empty".to_string())
         }
     }
-
+    pub fn is_empty(&self) -> bool {
+        match self {
+            Square::Some(_) => false,
+            Square::Empty => true,
+        }
+    }
     pub fn is_same_color(&self, square: Square) -> bool {
-        match (self, square) {
-            (Square::White(_), Square::White(_)) |
-            (Square::Black(_), Square::Black(_)) => true,
-            _ => false,
+        if self.is_empty() || square.is_empty() {
+            return false;
+        } else {
+            return self.piece().unwrap().is_same_color(square.piece().unwrap());
         }
     }
 }
@@ -302,11 +332,11 @@ impl Square {
 pub struct BasicMove {
     pub start_index: usize,
     pub target_index: usize,
-    pub piece: Piece,
+    pub piece: PieceKind,
 }
 
 impl BasicMove {
-    pub fn from(m: &[usize; 2], piece: Piece) -> Self {
+    pub fn from(m: &[usize; 2], piece: PieceKind) -> Self {
         BasicMove {
             start_index: m[0],
             target_index: m[1],
@@ -317,9 +347,9 @@ impl BasicMove {
         Move::BasicMove(self)
     }
     pub fn debug_moves(moves: &Vec<BasicMove>) {
-        let mut start_squares: Vec<usize> = moves
+        let mut start_squares: Vec<(usize, char)> = moves
             .iter()
-            .map(|m| m.start_index)
+            .map(|m| (m.start_index, m.piece.to_char()))
             .collect::<Vec<_>>();
         start_squares.dedup();
 
@@ -328,10 +358,10 @@ impl BasicMove {
             .map(|m| [ m.start_index, m.target_index ])
             .collect();
 
-        for start_square in start_squares.iter() {
+        for (start_square, piece) in start_squares.iter() {
             for i in 0..64 {
                 if i == *start_square {
-                    print!("0 ");
+                    print!("{} ", piece);
                 } else if moves_list.contains(&[*start_square, i]) {
                     print!("x ")
                 } else {
@@ -351,7 +381,7 @@ pub enum Move {
 }
 
 impl Move {
-    pub fn debug_moves(moves: &Vec<Move>, ignored_pieces: Vec<Piece>, show_castling: bool) {
+    pub fn debug_moves(moves: &Vec<Move>, ignored_pieces: Vec<PieceKind>, show_castling: bool) {
         BasicMove::debug_moves(&moves
             .iter()
             .filter_map(|m| match m { Move::BasicMove(bm) => Some(*bm), _ => None })
@@ -371,7 +401,7 @@ impl Move {
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
 pub struct Board {
     squares: [Square; 64],
-    turn: Turn,
+    turn: Color,
     castling_state: CastlingState,
     pub en_passant_index: Option<usize>,
     halfmove_clock: u32,
@@ -379,34 +409,35 @@ pub struct Board {
 }
 
 impl Board {
-    pub fn from(pieces: &[char; 64]) -> Self {
+    pub fn from(chars: &[char; 64]) -> Result<Self, String> {
         let mut squares = [Square::Empty; 64];
-        for (i, piece) in pieces.iter().enumerate() {
-            let piece_type = match piece.to_ascii_lowercase() {
-                'k' => Some(Piece::King),
-                'q' => Some(Piece::Queen),
-                'r' => Some(Piece::Rook),
-                'b' => Some(Piece::Bishop),
-                'n' => Some(Piece::Knight),
-                'p' => Some(Piece::Pawn),
+        for (i, piece_char) in chars.iter().enumerate() {
+            let piece = match piece_char.to_ascii_lowercase() {
+                'k' => Some(PieceKind::King),
+                'q' => Some(PieceKind::Queen),
+                'r' => Some(PieceKind::Rook),
+                'b' => Some(PieceKind::Bishop),
+                'n' => Some(PieceKind::Knight),
+                'p' => Some(PieceKind::Pawn),
                 ' ' => None,
                 _ => None, // TODO: Handle error
             };
-            squares[i] = match piece {
-                'k' | 'q' | 'r' | 'b' | 'n' | 'p' => match piece_type {
-                    Some(piece_type) => Square::Black(piece_type),
-                    None => Square::Empty,
-                },
-                'K' | 'Q' | 'R' | 'B' | 'N' | 'P' => match piece_type {
-                    Some(piece_type) => Square::White(piece_type),
-                    None => Square::Empty,
-                },
-                _ => Square::Empty, // TODO: Handle error
+            squares[i] = match piece_char {
+                'k' | 'q' | 'r' | 'b' | 'n' | 'p' => Piece {
+                    kind: piece.unwrap(),
+                    color: Color::Black
+                }.into(),
+                'K' | 'Q' | 'R' | 'B' | 'N' | 'P' => Piece {
+                    kind: piece.unwrap(),
+                    color: Color::White
+                }.into(),
+                ' ' => Square::Empty,
+                _ => return Err(format!("Invalid char: `{}`", piece_char)),
             };
         }
-        Board {
+        Ok(Board {
             squares,
-            turn: Turn::White,
+            turn: Color::White,
             castling_state: CastlingState {
                 white: CastlingRights::Both,
                 black: CastlingRights::Both,
@@ -414,7 +445,7 @@ impl Board {
             en_passant_index: None,
             halfmove_clock: 0,
             fullmove_count: 1,
-        }
+        })
     }
     pub fn new() -> Self {
         Board::from(&[
@@ -426,7 +457,7 @@ impl Board {
             ' ',' ',' ',' ',' ',' ',' ',' ',
             'P','P','P','P','P','P','P','P',
             'R','N','B','Q','K','B','N','R',
-        ])
+        ]).unwrap()
     }
 
     pub fn display(&self) {
@@ -441,7 +472,7 @@ impl Board {
         }
     }
 
-    pub fn from_fen(fen: &str) -> Result<Self, &str> {
+    pub fn from_fen(fen: &str) -> Result<Self, String> {
         // TODO: Handle errors
         let mut squares: Vec<char> = vec![];
         let mut iter = fen.split(' ');
@@ -470,8 +501,8 @@ impl Board {
             Err(_) => panic!("Invalid FEN (len): {}", fen),
         };
 
-        let mut board = Board::from(&array);
-        board.turn = Turn::from(turn);
+        let mut board = Board::from(&array)?;
+        board.turn = Color::from(turn);
         board.castling_state = CastlingState::from(castling_rights);
         board.en_passant_index = match en_passant_square.parse::<usize>() {
             Ok(index) => Some(index),
@@ -493,7 +524,7 @@ impl Board {
         todo!()
     }
 
-    fn slider_gen_moves(&self, start_index: usize) -> Vec<Move> {
+    fn slider_gen_moves(&self, start_index: usize) -> Result<Vec<Move>, String> {
         let mut moves: Vec<Move> = vec![];
         let square = self.squares[start_index as usize];
 
@@ -501,17 +532,19 @@ impl Board {
         let mut end_dir_index = 8;
         let mut branch_length = 8;
 
-        match square.piece() {
-            Some(Piece::Bishop) => start_dir_index = 4,
-            Some(Piece::Rook) => end_dir_index = 4,
-            Some(Piece::King) => branch_length = 1,
+        let piece = square.piece()?.kind;
+        match piece {
+            PieceKind::Bishop => start_dir_index = 4,
+            PieceKind::Rook => end_dir_index = 4,
+            PieceKind::King => branch_length = 1,
             _ => (),
         }
-        let piece = *square.piece().unwrap();
 
         for direction_index in start_dir_index..end_dir_index {
             for n in 0..branch_length.min(SQUARES_TO_EDGE[start_index][direction_index]) {
-                let target_index: usize = (start_index as i32 + DIRECTION_OFFSETS[direction_index] * (n + 1)) as usize;
+                let target_index: usize = (start_index as i32
+                + DIRECTION_OFFSETS[direction_index] * (n + 1)) as usize;
+
                 let target_square = self.squares[target_index];
 
                 if square.is_same_color(target_square) { break }
@@ -522,13 +555,13 @@ impl Board {
                     piece,
                 }.into());
 
-                if target_square != Square::Empty { break }
+                if target_square.is_empty() { break }
             }
         }
-        moves
+        Ok(moves)
     }
 
-    fn knight_gen_moves(&self, start_index: usize) -> Vec<Move> {
+    fn knight_gen_moves(&self, start_index: usize) -> Result<Vec<Move>, String> {
         let mut moves: Vec<Move> = vec![];
         for offset in KNIGHT_XY_OFFSETS.iter() {
             let (start_x, start_y) = (start_index % 8, start_index / 8 % 8);
@@ -546,54 +579,53 @@ impl Board {
                     moves.push(BasicMove {
                         start_index,
                         target_index,
-                        piece: Piece::Knight,
+                        piece: PieceKind::Knight,
                     }.into());
                 }
             }
         }
-        moves
+        Ok(moves)
     }
 
-    fn pawn_gen_moves(&self, start_index: usize) -> Vec<Move> {
+    fn pawn_gen_moves(&self, start_index: usize) -> Result<Vec<Move>, String> {
         let mut moves: Vec<Move> = vec![];
         let square = self.squares[start_index as usize];
 
         let rank = start_index / 8 % 8;
         let file = start_index % 8;
 
-        let offsets = match square {
-            Square::White(_) => [-8, -16, -9, -7],
-            Square::Black(_) => [ 8,  16,  7,  9],
-            _ => panic!("Not a piece."),
+        let color = square.piece()?.color;
+
+        let offsets = match color {
+            Color::White => [-8, -16, -9, -7],
+            Color::Black => [ 8,  16,  7,  9],
         };
-        let invalid_ranks = match square {
-            Square::White(_) => [1, 0],
-            Square::Black(_) => [6, 7],
-            _ => panic!("Not a piece."),
+        let invalid_ranks = match color {
+            Color::White => [1, 0],
+            Color::Black => [6, 7],
         };
-        let starting_rank = match square {
-            Square::White(_) => 6,
-            Square::Black(_) => 1,
-            _ => panic!("Not a piece."),
+        let starting_rank = match color {
+            Color::White => 6,
+            Color::Black => 1,
         };
         if rank != invalid_ranks[0] {
             let target_index: usize = (start_index as i32 + offsets[0]) as usize;
             let target_square = self.squares[target_index];
-            if target_square == Square::Empty {
+            if target_square.is_empty() {
                 moves.push(BasicMove {
                     start_index,
                     target_index,
-                    piece: Piece::Pawn,
+                    piece: PieceKind::Pawn,
                 }.into());
                 if rank != invalid_ranks[1]
                 && rank == starting_rank{
                     let target_index: usize = (start_index as i32 + offsets[1]) as usize;
                     let target_square = self.squares[target_index];
-                    if target_square == Square::Empty {
+                    if target_square.is_empty() {
                         moves.push(BasicMove {
                             start_index,
                             target_index,
-                            piece: Piece::Pawn
+                            piece: PieceKind::Pawn
                         }.into());
                     }
                 }
@@ -603,12 +635,12 @@ impl Board {
             let target_index: usize = (start_index as i32 + offsets[2]) as usize;
             let target_square = self.squares[target_index];
             if (!target_square.is_same_color(square)
-            && target_square != Square::Empty)
+            && !target_square.is_empty())
             || Some(target_index) == self.en_passant_index {
                 moves.push(BasicMove {
                     start_index,
                     target_index,
-                    piece: Piece::Pawn
+                    piece: PieceKind::Pawn
                 }.into());
             }
         }
@@ -616,35 +648,35 @@ impl Board {
             let target_index: usize = (start_index as i32 + offsets[3]) as usize;
             let target_square = self.squares[target_index];
             if !target_square.is_same_color(square)
-            && target_square != Square::Empty {
+            && !target_square.is_empty() {
                 moves.push(BasicMove {
                     start_index,
                     target_index,
-                    piece: Piece::Pawn
+                    piece: PieceKind::Pawn
                 }.into());
             }
         }
-        moves
+        Ok(moves)
     }
 
-    pub fn generate_moves(&self) -> Vec<Move> {
+    pub fn generate_moves(&self) -> Result<Vec<Move>, String> {
         let mut moves: Vec<Move> = vec![];
         for start_index in 0..64 {
             let square = self.squares[start_index];
-            match square.piece() {
-                Some(piece) => match piece {
-                    Piece::Bishop | Piece::Rook | Piece::Queen
-                                  => moves.append(&mut self.slider_gen_moves(start_index)),
-                    Piece::Knight => moves.append(&mut self.knight_gen_moves(start_index)),
-                    Piece::Pawn   => moves.append(&mut self.pawn_gen_moves(start_index)),
-                    Piece::King   => {
-                        moves.append(&mut self.slider_gen_moves(start_index));
-                        moves.append(&mut self.castling_state.get_moves(&square));
+            match square {
+                Square::Some(piece) => match piece.kind {
+                    PieceKind::Bishop | PieceKind::Rook | PieceKind::Queen
+                                  => moves.append(&mut self.slider_gen_moves(start_index)?),
+                    PieceKind::Knight => moves.append(&mut self.knight_gen_moves(start_index)?),
+                    PieceKind::Pawn   => moves.append(&mut self.pawn_gen_moves(start_index)?),
+                    PieceKind::King   => {
+                        moves.append(&mut self.slider_gen_moves(start_index)?);
+                        moves.append(&mut self.castling_state.get_moves(&square)?);
                     }
                 },
                 _ => (),
             }
         }
-        moves
+        Ok(moves)
     }
 }

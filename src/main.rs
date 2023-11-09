@@ -1,24 +1,17 @@
-mod board;
-use board::{Board, Move, Piece};
+pub mod board;
+use board::Board;
 
 fn main() {
-    let board = Board::from(&[
-        'r','n','b','q','k','b','n','r',
-        'p','p','p','p','p','p','p','p',
-        ' ',' ',' ',' ',' ',' ',' ',' ',
-        ' ',' ',' ',' ',' ',' ',' ',' ',
-        ' ',' ',' ',' ',' ',' ',' ',' ',
-        ' ',' ',' ',' ',' ',' ',' ',' ',
-        'P','P','P','P','P','P','P','P',
-        'R','N','B','Q','K','B','N','R',
-    ]);
-    let moves = board.generate_moves();
-    Move::debug_moves(
-        &moves,
-        vec![Piece::Pawn],
-        false,
-    );
+    if match std::env::args().nth(1) {
+        Some(arg) => arg == "Profile".to_string(),
+        None => false,
+    } {
+    }
+    let board = Board::new();
+    let moves = board.generate_moves().unwrap();
+    board::Move::debug_moves(&moves, vec![board::PieceKind::Pawn], false,);
 }
+
 
 #[cfg(test)]
 mod tests {
