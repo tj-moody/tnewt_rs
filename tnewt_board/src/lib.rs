@@ -1,4 +1,6 @@
 #![allow(dead_code)]
+use color_eyre::eyre::Result;
+use colored::{Colorize, ColoredString};
 
 mod magic_numbers;
 use magic_numbers::{
@@ -92,7 +94,7 @@ impl Coordinate {
 
 
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
-enum Color {
+pub enum Color {
     White,
     Black,
 }
@@ -104,9 +106,15 @@ impl Color {
             _   => panic!("Invalid FEN (turn)"), // TODO: Handle error
         }
     }
+    pub fn opposite(&self) -> Color {
+        match self {
+            Color::White => Color::Black,
+            Color::Black => Color::White,
+        }
+    }
 }
 
-type CastlingMove = [BasicMove; 2];
+pub type CastlingMove = [BasicMove; 2];
 
 trait MoveDebug {
      fn debug_moves(castling_moves: &Vec<CastlingMove>);
@@ -144,8 +152,32 @@ impl MoveDebug for CastlingMove {
     }
 }
 
+pub trait GetInbetweenSquares {
+    fn get_inbetween_squares(&self) -> Vec<usize>;
+}
+
+impl GetInbetweenSquares for CastlingMove {
+    fn get_inbetween_squares(&self) -> Vec<usize> {
+        if self == &[
+            BasicMove::from(&[60, 62], PieceKind::King),
+            BasicMove::from(&[63, 61], PieceKind::Rook),
+        ] { return vec![61, 62]; } else if self == &[
+            BasicMove::from(&[4, 6], PieceKind::King),
+            BasicMove::from(&[7, 5], PieceKind::Rook),
+        ] { return vec![5, 6]; } else if self == &[
+            BasicMove::from(&[60, 58], PieceKind::King),
+            BasicMove::from(&[56, 59], PieceKind::Rook),
+        ] { return vec![57, 58, 59] } else if self == &[
+            BasicMove::from(&[4, 2], PieceKind::King),
+            BasicMove::from(&[0, 3], PieceKind::Rook),
+        ] { return vec![1, 2, 3] } else {
+            panic!("Invalid castling move");
+        }
+    }
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
-enum CastlingRights {
+pub enum CastlingRights {
     Neither,
     Kingside,
     Queenside,
@@ -169,33 +201,30 @@ impl CastlingRights {
             CastlingRights::Both      => "kq",
         }
     }
-    pub fn gen_moves(&self, square: &Square) -> Result<Vec<CastlingMove>, String> {
+    pub fn gen_moves(&self, color: &Color) -> Result<Vec<Move>, String> {
         // Magic values: king, rook
-        let piece = square.piece()?;
-        let color = piece.color;
-        match piece.kind {
-            PieceKind::King => (),
-            _ => return Err(format!("Invalid Square: square {:?} has no color", &square)),
-        }
-        let kingside: CastlingMove = match color {
-            Color::White => [
+        let kingside = match color {
+            Color::White => Move::CastlingMove([
                 BasicMove::from(&[60, 62], PieceKind::King),
                 BasicMove::from(&[63, 61], PieceKind::Rook),
-            ],
-            Color::Black => [
+            ]),
+            Color::Black => Move::CastlingMove([
                 BasicMove::from(&[4, 6], PieceKind::King),
                 BasicMove::from(&[7, 5], PieceKind::Rook),
-            ],
+            ]),
+            // can assume rook and king square have their respective
+            // pieces as validated by castling rights, therefore do
+            // not include 4, 7 in squares to check for emptiness
         };
-        let queenside: CastlingMove = match color {
-            Color::White => [
+        let queenside = match color {
+            Color::White => Move::CastlingMove([
                     BasicMove::from(&[60, 58], PieceKind::King),
                     BasicMove::from(&[56, 59], PieceKind::Rook),
-            ],
-            Color::Black => [
-                    BasicMove::from(&[4, 2], PieceKind::King),
-                    BasicMove::from(&[0, 3], PieceKind::Rook),
-            ],
+            ]),
+            Color::Black => Move::CastlingMove([
+                BasicMove::from(&[4, 2], PieceKind::King),
+                BasicMove::from(&[0, 3], PieceKind::Rook),
+            ]),
         };
 
         match self {
@@ -225,11 +254,11 @@ impl CastlingState {
             self.black.to_str().to_ascii_lowercase().as_str()
         );
     }
-    pub fn get_moves(&self, square: &Square) -> Result<Vec<Move>, String> {
-        Ok(match square.piece()?.color {
-            Color::White => self.white.gen_moves(&square),
-            Color::Black => self.black.gen_moves(&square),
-        }?.iter().map(|m| Move::CastlingMove(*m)).collect())
+    pub fn get_moves(&self, color: &Color) -> Result<Vec<Move>, String> {
+        Ok(match color {
+            Color::White => self.white.gen_moves(&color),
+            Color::Black => self.black.gen_moves(&color),
+        }?)
     }
 }
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
@@ -307,6 +336,16 @@ impl Square {
             Square::Empty => '.',
         }
     }
+    pub fn display(&self) -> ColoredString {
+        let string = self.to_char().to_string();
+        match self {
+            Square::Some(piece) => match piece.color {
+                Color::White => string.bright_white().bold(),
+                Color::Black => string.bright_black().bold(),
+            },
+            Square::Empty => string.black(),
+        }
+    }
     pub fn piece(&self) -> Result<&Piece, String> {
         match self {
             Square::Some(piece) => Ok(piece),
@@ -358,14 +397,14 @@ impl BasicMove {
             .map(|m| [ m.start_index, m.target_index ])
             .collect();
 
-        for (start_square, piece) in start_squares.iter() {
+        for (start_square, piece) in start_squares.into_iter() {
             for i in 0..64 {
-                if i == *start_square {
-                    print!("{} ", piece);
-                } else if moves_list.contains(&[*start_square, i]) {
-                    print!("x ")
+                if i == start_square {
+                    print!("{} ", piece.to_string().bright_white().bold());
+                } else if moves_list.contains(&[start_square, i]) {
+                    print!("{} ", 'x'.to_string().bright_blue())
                 } else {
-                    print!(". ")
+                    print!("{} ", '.'.to_string().black())
                 }
                 if i % 8 == 7 { print!("\n") };
             }
@@ -462,10 +501,10 @@ impl Board {
 
     pub fn display(&self) {
         for (i, square) in self.squares.iter().enumerate() {
-            print!("{} ", square.to_char());
+            print!("{} ", square.display());
             if i % 8 == 7 {
                 for j in i - 7..=i {
-                    print!(" {}", format!("{: >2}", j));
+                    print!(" {}", format!("{: >2}", j).black());
                 }
                 print!("\n");
             }
@@ -476,12 +515,12 @@ impl Board {
         // TODO: Handle errors
         let mut squares: Vec<char> = vec![];
         let mut iter = fen.split(' ');
-        let pieces            = iter.next().unwrap();
-        let turn              = iter.next().unwrap();
-        let castling_rights   = iter.next().unwrap();
-        let en_passant_square = iter.next().unwrap();
-        let halfmove_clock    = iter.next().unwrap();
-        let fullmove_count    = iter.next().unwrap();
+        let pieces            = iter.next().expect("Invalid FEN");
+        let turn              = iter.next().expect("Invalid FEN");
+        let castling_rights   = iter.next().expect("Invalid FEN");
+        let en_passant_square = iter.next().expect("Invalid FEN");
+        let halfmove_clock    = iter.next().expect("Invalid FEN");
+        let fullmove_count    = iter.next().expect("Invalid FEN");
         for row in pieces.split('/') {
             for c in row.chars() {
                 match c {
@@ -555,7 +594,7 @@ impl Board {
                     piece,
                 }.into());
 
-                if target_square.is_empty() { break }
+                if !target_square.is_empty() { break }
             }
         }
         Ok(moves)
@@ -659,24 +698,113 @@ impl Board {
         Ok(moves)
     }
 
-    pub fn generate_moves(&self) -> Result<Vec<Move>, String> {
+    fn gen_castling_moves(&self) -> Result<Vec<Move>, String> {
+        Ok(self.castling_state.get_moves(&self.turn)?
+            .into_iter()
+            .filter(|&m| {
+                let mut empty_indices: Vec<usize> = vec![];
+                if let Move::BasicMove(_) = m {
+                    panic!("`CastlingState.get_moves()` returned `BasicMoves`s");
+                } else if let Move::CastlingMove(castling_move) = m {
+                    empty_indices = castling_move.get_inbetween_squares();
+                }
+                for &empty_index in empty_indices.iter() {
+                    match self.squares[empty_index] {
+                        Square::Some(_) => return false,
+                        Square::Empty => (),
+                    };
+                }
+                true
+            })
+            .collect::<Vec<Move>>())
+    }
+
+    pub fn gen_pseudo_legal_moves(&self) -> Result<Vec<Move>, String> {
         let mut moves: Vec<Move> = vec![];
         for start_index in 0..64 {
             let square = self.squares[start_index];
             match square {
-                Square::Some(piece) => match piece.kind {
-                    PieceKind::Bishop | PieceKind::Rook | PieceKind::Queen
-                                  => moves.append(&mut self.slider_gen_moves(start_index)?),
-                    PieceKind::Knight => moves.append(&mut self.knight_gen_moves(start_index)?),
-                    PieceKind::Pawn   => moves.append(&mut self.pawn_gen_moves(start_index)?),
-                    PieceKind::King   => {
-                        moves.append(&mut self.slider_gen_moves(start_index)?);
-                        moves.append(&mut self.castling_state.get_moves(&square)?);
+                Square::Some(piece) => {
+                    if piece.color != self.turn { continue }
+                    match piece.kind {
+                        PieceKind::Bishop | PieceKind::Rook | PieceKind::Queen | PieceKind::King
+                                          => moves.append(&mut self.slider_gen_moves(start_index)?),
+                        PieceKind::Knight => moves.append(&mut self.knight_gen_moves(start_index)?),
+                        PieceKind::Pawn   => moves.append(&mut self.pawn_gen_moves(start_index)?),
                     }
                 },
                 _ => (),
             }
         }
+        moves.append(&mut self.gen_castling_moves()?);
         Ok(moves)
+    }
+
+    pub fn change_turn(&mut self) {
+        self.turn = self.turn.opposite();
+    }
+
+    pub fn gen_legal_moves(&self) -> Result<Vec<Move>, String> {
+        Ok(self.gen_pseudo_legal_moves()?.into_iter().filter(|m| {
+            // TODO: Check without cloning. Would require make move -> check -> undo move,
+            //       Which would require an unsafe block, to mutate self by moving
+            //       while still only taking a shared reference.
+            let mut board = self.clone();
+            board.do_move(m);
+            board.change_turn();
+
+            let opponent_responses = board.gen_pseudo_legal_moves().unwrap();
+            let king_index = board.squares
+                .iter()
+                .position(|&square| square == Square::Some(Piece {
+                kind: PieceKind::King, color: self.turn
+            })).expect("Board with no king!");
+
+            for &response in opponent_responses.iter() {
+                match response {
+                    Move::BasicMove(m) => {
+                        if m.target_index == king_index {
+                            println!("{:?}", m);
+                            return false;
+                        }
+                    }
+                    Move::CastlingMove(_) => (),
+                }
+            }
+            true
+        }).collect::<Vec<Move>>())
+    }
+
+    fn do_move(&mut self, m: &Move) {
+        match m {
+            Move::BasicMove(m) => {
+                self.squares[m.target_index] = self.squares[m.start_index];
+                self.squares[m.start_index] = Square::Empty;
+            },
+            Move::CastlingMove(cm) => {
+                cm.iter().for_each(|m| {
+                    self.squares[m.target_index] = self.squares[m.start_index];
+                    self.squares[m.start_index] = Square::Empty;
+                })
+            }
+        }
+    }
+
+    fn play_move(&mut self, m: &Move) -> Result<(), String> {
+        self.do_move(m);
+        self.halfmove_clock += 1;
+        if self.turn == Color::Black { self.fullmove_count += 1; }
+        self.change_turn();
+
+        // TODO: Update castling rights, en passant target
+
+        Ok(())
+    }
+
+    pub fn user_play_move(&mut self, m: &[usize; 2]) -> Result<(), String> {
+        self.play_move(&BasicMove::from(m,
+            self.squares[m[0]].piece()?.kind,
+        ).into())?;
+        Ok(())
     }
 }

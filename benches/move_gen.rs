@@ -4,7 +4,7 @@ use tnewt_board::Board;
 
 fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("New Board Moves", |b| b.iter(|| {
-        let _ = Board::new().generate_moves();
+        let _ = Board::new().gen_legal_moves();
     }));
 }
 
