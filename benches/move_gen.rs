@@ -9,28 +9,16 @@ fn criterion_benchmark(c: &mut Criterion) {
     }));
     let mut random_games = c.benchmark_group("Play Random Game");
     random_games.bench_function("Unmove", |b| b.iter(|| {
-        use rand::{seq::SliceRandom, thread_rng};
         let mut board = Board::new();
         board.implementation = Implementation::Unmove;
         const MOVE_LIMIT: u32 = 1000;
-        for _ in 0..MOVE_LIMIT {
-            let moves = board.gen_legal_moves().unwrap();
-            let mov = moves.choose(&mut thread_rng());
-            board.play_optional_move(mov).unwrap();
-            if board.state.game_state != GameState::Playing { break }
-        }
+        board.play_random_game(MOVE_LIMIT).unwrap();
     }));
     random_games.bench_function("Clone", |b| b.iter(|| {
-        use rand::{seq::SliceRandom, thread_rng};
         let mut board = Board::new();
         board.implementation = Implementation::Clone;
         const MOVE_LIMIT: u32 = 1000;
-        for _ in 0..MOVE_LIMIT {
-            let moves = board.gen_legal_moves().unwrap();
-            let mov = moves.choose(&mut thread_rng());
-            board.play_optional_move(mov).unwrap();
-            if board.state.game_state != GameState::Playing { break }
-        }
+        board.play_random_game(MOVE_LIMIT).unwrap();
     }));
     random_games.finish();
 
