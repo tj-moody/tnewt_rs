@@ -1,6 +1,7 @@
 use color_eyre::eyre::Result;
 
-use tnewt_board::*;
+use tnewt_board::implementations::*;
+use tnewt_board::board::*;
 
 #[allow(dead_code)]
 static STARTING_POSITION: &[char; 64] = &[
@@ -28,11 +29,23 @@ static EMPTY_POSITION: &[char; 64] = &[
 fn main() -> Result<(), String> {
     let implementation_string = std::env::args().nth(1);
     let mut implementation: Option<Implementation> = None;
-    if implementation_string == Some("Unmove".to_string()) {
-        implementation = Some(Implementation::Unmove);
-    } else if implementation_string == Some("Clone".to_string()) {
-        implementation = Some(Implementation::Clone);
+    if implementation_string == Some("Original".to_string()) {
+        implementation = Some(Implementation::Original);
+    } else if implementation_string == Some("Other".to_string()) {
+        implementation = Some(Implementation::Original);
     }
+
+    #[allow(unused_variables, unused_mut)]
+    match implementation {
+        Some(i) => match i {
+            Implementation::Original => {
+                let mut board = original::Board::new();
+            },
+        }
+        None => {
+            let mut board = original::Board::new();
+        },
+    };
 
     // let mut board = Board::from(&[
     //     ' ',' ',' ',' ',' ',' ',' ',' ', //  0  1  2  3  4  5  6  7
@@ -45,17 +58,11 @@ fn main() -> Result<(), String> {
     //     ' ',' ',' ',' ',' ',' ',' ',' ', // 56 57 58 59 60 61 62 63
     // ])?;
 
-    let mut board = Board::new();
-    match implementation {
-        Some(implementation) => board.implementation = implementation,
-        None => (),
-    }
-    dbg!(board.implementation);
-
+    // let mut board = Board::new();
 
     // for i in 0..1000 {
     //     let mut board = Board::new();
-    //     board.implementation = Implementation::Unmove;
+    //     board.algorithm = Algorithm::Unmove;
     //     println!("Game {i}: {:?}", board.play_random_game(500)?);
     // }
 
@@ -63,9 +70,9 @@ fn main() -> Result<(), String> {
     // // board.gen_legal_moves()?;
     // board.dbg_gen_moves()?;
 
-    for i in 1..6 {
-        dbg!(board.dbg_depth_num_positions(i)?);
-    }
+    // for i in 1..6 {
+    //     dbg!(board.dbg_depth_num_positions(i)?);
+    // }
 
     Ok(())
 }
