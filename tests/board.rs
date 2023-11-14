@@ -40,7 +40,7 @@ mod tests {
     }
 
     #[test]
-    fn clone_depth_3_num_positions() {
+    fn clone_depth_3_num_positions() -> Result<(), String> {
         let fen_positions: [(&str, [u32; 3]); 6] = [
             ("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",                 [20, 400 , 8902 ]),
             ("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",     [48, 2039, 97862]),
@@ -50,18 +50,19 @@ mod tests {
             ("r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10", [46, 2079, 89890])
         ];
         for (i, (fen, num_positions)) in fen_positions.into_iter().enumerate() {
-            let mut board = Board::from_fen(fen).unwrap();
+            let mut board = Board::from_fen(fen)?;
             board.implementation = Implementation::Clone;
             println!("Test Position {i}");
             board.display();
             for j in 0..3 {
-                assert_eq!(board.dbg_depth_num_positions(j as i32 + 1).unwrap(), num_positions[j]);
+                assert_eq!(board.dbg_depth_num_positions(j as i32 + 1)?, num_positions[j]);
             }
         }
+        Ok(())
     }
 
     #[test]
-    fn unmove_depth_3_num_positions() {
+    fn unmove_depth_3_num_positions() -> Result<(), String> {
         let fen_positions: [(&str, [u32; 3]); 6] = [
             ("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",                 [20, 400 , 8902 ]),
             ("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",     [48, 2039, 97862]),
@@ -71,14 +72,15 @@ mod tests {
             ("r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10", [46, 2079, 89890])
         ];
         for (i, (fen, num_positions)) in fen_positions.into_iter().enumerate() {
-            let mut board = Board::from_fen(fen).unwrap();
+            let mut board = Board::from_fen(fen)?;
             board.implementation = Implementation::Unmove;
             println!("Test Position {i}");
             board.display();
             for j in 0..3 {
-                assert_eq!(board.dbg_depth_num_positions(j as i32 + 1).unwrap(), num_positions[j]);
+                assert_eq!(board.dbg_depth_num_positions(j as i32 + 1)?, num_positions[j]);
             }
         }
+        Ok(())
     }
 
     #[test]
