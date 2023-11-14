@@ -32,8 +32,7 @@ pub struct Board {
 }
 
 impl Board {
-    fn slider_gen_moves(&self, start_index: usize) -> Result<Vec<Move>, String> {
-        let mut moves: Vec<Move> = vec![];
+    fn slider_gen_moves(&self, moves: &mut Vec<Move>, start_index: usize) -> Result<(), String> {
         let square = self.squares[start_index];
 
         let mut start_dir_index = 0;
@@ -73,11 +72,11 @@ impl Board {
                     if !target_square.is_empty() { break }
                 }
             }
-        Ok(moves)
+
+        Ok(())
     }
 
-    fn knight_gen_moves(&self, start_index: usize) -> Result<Vec<Move>, String> {
-        let mut moves: Vec<Move> = vec![];
+    fn knight_gen_moves(&self, moves: &mut Vec<Move>, start_index: usize) -> Result<(), String> {
         for offset in KNIGHT_XY_OFFSETS.iter() {
             let (start_x, start_y) = (start_index % 8, start_index / 8 % 8);
             let (target_x, target_y) = (
@@ -98,11 +97,10 @@ impl Board {
                 }
             }
         }
-        Ok(moves)
+        Ok(())
     }
 
-    fn pawn_gen_moves(&self, start_index: usize) -> Result<Vec<Move>, String> {
-        let mut moves: Vec<Move> = vec![];
+    fn pawn_gen_moves(&self, moves: &mut Vec<Move>, start_index: usize) -> Result<(), String> {
         let square = self.squares[start_index];
 
         let rank = start_index / 8 % 8;
@@ -122,8 +120,7 @@ impl Board {
             Color::White => 6,
             Color::Black => 1,
         };
-        if rank == invalid_ranks[0] { return Ok(vec![]) }
-        if rank == invalid_ranks[1] {} // TODO: Promotion
+        if rank == invalid_ranks[0] { return Ok(()) }
 
         if rank != invalid_ranks[0] {
             let target_index: usize = (start_index as i32 + offsets[0]) as usize;
@@ -193,13 +190,13 @@ impl Board {
                 }
             }
         }
-        Ok(moves)
+        Ok(())
     }
 
-    fn gen_castling_moves(&self) -> Result<Vec<Move>, String> {
-        Ok(self.state.castling_state.get_moves(&self.state.turn)?
-            .into_iter()
-            .filter(|&m| {
+    fn gen_castling_moves(&self, moves: &mut Vec<Move>)  -> Result<(), String> {
+        self.state.castling_state.get_moves(&self.state.turn)?
+            .iter()
+            .for_each(|&m| {
                 // let mut empty_indices: Vec<usize> = vec![];
                 let mut empty_indices: Vec<usize> = vec![];
                 let mut king_index: usize = 64;
@@ -212,31 +209,27 @@ impl Board {
                 }
                 for &empty_index in empty_indices.iter() {
                     match self.squares[empty_index] {
-                        Square::Some(_) => return false,
+                        Square::Some(_) => return,
                         Square::Empty => (),
                     };
                 }
                 match self.squares[king_index] {
                     Square::Some(piece) => match piece.kind {
-                        PieceKind::King => if piece.color != self.state.turn {
-                            return false
-                        },
-                        _ => return false,
+                        PieceKind::King => if piece.color != self.state.turn { return },
+                        _ => return,
                     },
-                    Square::Empty => return false,
+                    Square::Empty => return,
                 };
                 match self.squares[rook_index] {
                     Square::Some(piece) => match piece.kind {
-                        PieceKind::Rook => if piece.color != self.state.turn {
-                            return false
-                        },
-                        _ => return false,
+                        PieceKind::Rook => if piece.color != self.state.turn { return }
+                        _ => return,
                     },
-                    Square::Empty => return false,
+                    Square::Empty => return,
                 };
-                true
-            })
-            .collect::<Vec<Move>>())
+                moves.push(m);
+            });
+        Ok(())
     }
 
     fn gen_pseudo_legal_moves(&self) -> Result<Vec<Move>, String> {
@@ -248,13 +241,13 @@ impl Board {
                 if piece.color != self.state.turn { continue }
                 match piece.kind {
                     PieceKind::Bishop | PieceKind::Rook | PieceKind::Queen | PieceKind::King
-                        => moves.append(&mut self.slider_gen_moves(start_index)?),
-                    PieceKind::Knight => moves.append(&mut self.knight_gen_moves(start_index)?),
-                    PieceKind::Pawn   => moves.append(&mut self.pawn_gen_moves(start_index)?),
-                }
+                                      => self.slider_gen_moves(&mut moves, start_index)?,
+                    PieceKind::Knight => self.knight_gen_moves(&mut moves, start_index)?,
+                    PieceKind::Pawn   => self.pawn_gen_moves(&mut moves, start_index)?,
+                };
             }
         }
-        moves.append(&mut self.gen_castling_moves()?);
+        self.gen_castling_moves(&mut moves)?;
 
         Ok(moves)
     }
@@ -309,7 +302,7 @@ impl Board {
 }
 
 impl PlayableBoard for Board {
-    fn from_chars(chars: &[char; 64]) -> Result<Self, String> {
+    fn from_chars(chars: &[char; 64]) -> std::result::Result<Self, String> {
         let mut squares = [Square::Empty; 64];
         for (i, piece_char) in chars.iter().enumerate() {
             let piece = match piece_char.to_ascii_lowercase() {

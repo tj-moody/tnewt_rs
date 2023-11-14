@@ -32,7 +32,7 @@ pub enum Algorithm {
 pub trait PlayableBoard {
     fn new() -> Self;
 
-    fn from(chars: &[char; 64]) -> Result<Self, String>
+    fn from_chars(chars: &[char; 64]) -> Result<Self, String>
     where Self: Sized;
 
     fn from_fen(fen: &str) -> Result<Self, String>
@@ -69,16 +69,20 @@ pub trait PlayableBoard {
     fn dbg_set_algorithm(&mut self, algorithm: Algorithm);
 }
 
-use crate::implementations::*;
+// TODO: Convert all of these into a macro
 
-pub fn from_fen(fen: &str, implementation: Implementation) -> Result<impl PlayableBoard, String> {
-    match implementation {
-        Implementation::Original => Ok(original::Board::from_fen(fen)?),
-    }
+use crate::implementations::*;
+pub fn from_fen(fen: &str) -> Result<impl PlayableBoard, String> {
+    // original::Board::from_fen(fen)
+    mut_pass::Board::from_fen(fen)
 }
 
-pub fn new(implementation: Implementation) -> impl PlayableBoard {
-    match implementation {
-        Implementation::Original => original::Board::new(),
-    }
+pub fn new() -> impl PlayableBoard {
+    // original::Board::new()
+    mut_pass::Board::new()
+}
+
+pub fn from_chars(chars: &[char; 64]) -> Result<impl PlayableBoard, String> {
+    // original::Board::from_chars(chars)
+    mut_pass::Board::from_chars(chars)
 }

@@ -1,18 +1,12 @@
 #[cfg(test)]
 
 mod tests {
-    use implementations::*;
     use tnewt_board::*;
 
     use board::{PlayableBoard, Algorithm};
     use color::*;
     use square::*;
 
-    const IMPLEMENTATION: Implementation = Implementation::Original;
-    fn new() -> impl PlayableBoard { board::new(IMPLEMENTATION) }
-    fn from_fen(fen: &str) -> Result<impl PlayableBoard, String> {
-        board::from_fen(fen, IMPLEMENTATION)
-    }
     const TEST_FENS: [(&str, [u32; 3]); 6] = [
         ("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",                 [20, 400 , 8902 ]),
         ("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",     [48, 2039, 97862]),
@@ -25,8 +19,8 @@ mod tests {
 
     #[test]
     fn default_fen_functions() -> Result<(), String> {
-        let board = new();
-        let board2 = from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")?;
+        let board = board::new();
+        let board2 = board::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")?;
         assert_eq!(board.squares(), board2.squares());
         assert_eq!(board.state(), board2.state());
         Ok(())
@@ -63,7 +57,7 @@ mod tests {
     #[test]
     fn clone_depth_3_num_positions() -> Result<(), String> {
         for (i, (fen, num_positions)) in TEST_FENS.into_iter().enumerate() {
-            let mut board = from_fen(fen)?;
+            let mut board = board::from_fen(fen)?;
             board.dbg_set_algorithm(Algorithm::Clone);
             println!("Test Position {i}");
             board.display();
@@ -77,7 +71,7 @@ mod tests {
     #[test]
     fn unmove_depth_3_num_positions() -> Result<(), String> {
         for (i, (fen, num_positions)) in TEST_FENS.into_iter().enumerate() {
-            let mut board = from_fen(fen)?;
+            let mut board = board::from_fen(fen)?;
             board.dbg_set_algorithm(Algorithm::Unmove);
             println!("Test Position {i}");
             board.display();
@@ -90,7 +84,7 @@ mod tests {
 
     #[test]
     fn play_random_moves() -> Result<(), String> {
-        let mut board = new();
+        let mut board = board::new();
         const DEPTH: u32 = 10_000;
         let _game_state = board.play_random_game(DEPTH)?;
         Ok(())
