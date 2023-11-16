@@ -1,4 +1,9 @@
-#![allow(dead_code)]
+// #![allow(dead_code)]
+use rustc_hash::FxHashSet;
+use std::hash::{BuildHasherDefault, Hasher};
+use rustc_hash::FxHasher;
+use std::collections::hash_map::RandomState;
+
 use color_eyre::eyre::Result;
 use colored::Colorize;
 
@@ -32,7 +37,7 @@ pub struct Board {
 }
 
 impl Board {
-    fn slider_gen_moves(&self, moves: &mut Vec<Move>, start_index: usize) -> Result<(), String> {
+    fn slider_gen_moves(&self, moves: &mut FxHashSet<Move>, start_index: usize) -> Result<(), String> {
         let square = self.squares[start_index];
 
         let mut start_dir_index = 0;
@@ -64,7 +69,7 @@ impl Board {
                         if target_piece.color == piece.color { break }
                     }
 
-                    moves.push(BasicMove {
+                    moves.insert(BasicMove {
                         start_index,
                         target_index,
                     }.into());
@@ -76,7 +81,7 @@ impl Board {
         Ok(())
     }
 
-    fn knight_gen_moves(&self, moves: &mut Vec<Move>, start_index: usize) -> Result<(), String> {
+    fn knight_gen_moves(&self, moves: &mut FxHashSet<Move>, start_index: usize) -> Result<(), String> {
         for offset in KNIGHT_XY_OFFSETS.iter() {
             let (start_x, start_y) = (start_index % 8, start_index / 8 % 8);
             let (target_x, target_y) = (
@@ -90,7 +95,7 @@ impl Board {
                 let target_square = self.squares[target_index];
 
                 if !square.is_same_color(target_square) {
-                    moves.push(BasicMove {
+                    moves.insert(BasicMove {
                         start_index,
                         target_index,
                     }.into());
@@ -100,7 +105,7 @@ impl Board {
         Ok(())
     }
 
-    fn pawn_gen_moves(&self, moves: &mut Vec<Move>, start_index: usize) -> Result<(), String> {
+    fn pawn_gen_moves(&self, moves: &mut FxHashSet<Move>, start_index: usize) -> Result<(), String> {
         let square = self.squares[start_index];
 
         let rank = start_index / 8 % 8;
@@ -132,17 +137,17 @@ impl Board {
                 };
                 if rank == invalid_ranks[1] {
                     for promotion_move in PromotionMove::from_move(mov).iter() {
-                        moves.push(Move::PromotionMove(*promotion_move))
+                        moves.insert(Move::PromotionMove(*promotion_move));
                     }
                 } else {
-                    moves.push(mov.into());
+                    moves.insert(mov.into());
                 }
                 if rank != invalid_ranks[1]
                 && rank == starting_rank{
                     let target_index: usize = (start_index as i32 + offsets[1]) as usize;
                     let target_square = self.squares[target_index];
                     if target_square.is_empty() {
-                        moves.push(BasicMove {
+                        moves.insert(BasicMove {
                             start_index,
                             target_index,
                         }.into());
@@ -163,10 +168,10 @@ impl Board {
                 };
                 if rank == invalid_ranks[1] {
                     for promotion_move in PromotionMove::from_move(mov).iter() {
-                        moves.push(Move::PromotionMove(*promotion_move))
+                        moves.insert(Move::PromotionMove(*promotion_move));
                     }
                 } else {
-                    moves.push(mov.into());
+                    moves.insert(mov.into());
                 }
             }
         }
@@ -183,17 +188,17 @@ impl Board {
                 };
                 if rank == invalid_ranks[1] {
                     for promotion_move in PromotionMove::from_move(mov).iter() {
-                        moves.push(Move::PromotionMove(*promotion_move))
+                        moves.insert(Move::PromotionMove(*promotion_move));
                     }
                 } else {
-                    moves.push(mov.into());
+                    moves.insert(mov.into());
                 }
             }
         }
         Ok(())
     }
 
-    fn gen_castling_moves(&self, moves: &mut Vec<Move>)  -> Result<(), String> {
+    fn gen_castling_moves(&self, moves: &mut FxHashSet<Move>)  -> Result<(), String> {
         self.state.castling_state.get_moves(&self.state.turn)?
             .iter()
             .for_each(|&m| {
@@ -227,14 +232,17 @@ impl Board {
                     },
                     Square::Empty => return,
                 };
-                moves.push(m);
+                moves.insert(m);
             });
         Ok(())
     }
 
-    fn gen_pseudo_legal_moves(&self) -> Result<Vec<Move>, String> {
+    fn gen_pseudo_legal_moves(&self) -> Result<FxHashSet<Move>, String> {
         // TODO: Benchmark capacity past which performace gains diminish
-        let mut moves: Vec<Move> = Vec::with_capacity(50);
+
+        // type S = BuildHasherDefault<FxHasher>;
+        let mut moves: FxHashSet<Move> = FxHashSet::with_capacity_and_hasher(50, BuildHasherDefault::<FxHasher>::default());
+        // let mut moves: FxHashSet<Move> = FxHashSet::default();
         for start_index in 0..64 {
             let square = self.squares[start_index];
             if let Square::Some(piece) = square {
@@ -302,7 +310,7 @@ impl Board {
 
     /// This function does not actually mutate self, as it calls `make_move`
     /// and `unmake_move` sequentially, without mutating anywhere else.
-    fn gen_legal_moves(&mut self) -> Result<Vec<Move>, String> {
+    fn gen_legal_moves(&mut self) -> Result<FxHashSet<Move>, String> {
         Ok(self.gen_pseudo_legal_moves()?.into_iter().filter(|m| {
             let mut king_indices: Vec<usize>;
             if let Move::CastlingMove(cm) = m {
@@ -313,7 +321,7 @@ impl Board {
             } else {
                 king_indices = vec![];
             }
-            let opponent_responses: Vec<Move>;
+            let opponent_responses: FxHashSet<Move>;
             let king_index: usize;
 
             // PERF: Cloning allows maintaining shared reference, but results
@@ -349,9 +357,8 @@ impl Board {
                     Move::CastlingMove(_) => (),
                 }
             }
-
             true
-        }).collect::<Vec<Move>>())
+        }).collect::<FxHashSet<Move>>())
     }
 }
 
@@ -821,12 +828,9 @@ impl PlayableBoard for Board {
         &mut self,
         move_limit: u32,
     ) -> Result<GameState, String> {
-        use rand::{seq::SliceRandom, thread_rng};
         for _ in 0..move_limit {
             let moves = self.gen_legal_moves()?;
-
-            let mut rng = thread_rng();
-            let mov = moves.choose(&mut rng);
+            let mov = moves.iter().next();
             self.play_optional_move(mov).unwrap();
             if self.state.game_state != GameState::Playing { break }
         }
@@ -834,7 +838,7 @@ impl PlayableBoard for Board {
     }
 
     fn dbg_gen_moves(&mut self) -> Result<(), String> {
-        let moves = self.gen_legal_moves()?;
+        let moves = self.gen_legal_moves()?.into_iter().collect::<Vec<_>>();
         self.dbg_moves(&moves, vec![], true)?;
         Ok(())
     }

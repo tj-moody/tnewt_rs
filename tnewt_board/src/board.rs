@@ -1,3 +1,5 @@
+// use rustc_hash::FxHashSet;
+
 use crate::square::*;
 use crate::mov::*;
 use crate::color::*;
@@ -50,7 +52,6 @@ pub trait PlayableBoard {
         show_castling: bool,
     ) -> Result<(), String> ;
     fn change_turn(&mut self);
-    fn gen_legal_moves(&mut self) -> Result<Vec<Move>, String>;
     fn make_move(&mut self, m: &Move) -> Result<(), String>;
     fn unmake_move(&mut self) -> Result<(), String>;
     fn king_index(&self, color: Color) -> Result<usize, String>;
@@ -75,14 +76,17 @@ use crate::implementations::*;
 pub fn from_fen(fen: &str) -> Result<impl PlayableBoard, String> {
     // original::Board::from_fen(fen)
     mut_pass::Board::from_fen(fen)
+    // hash_set::Board::from_fen(fen)
 }
 
 pub fn new() -> impl PlayableBoard {
     // original::Board::new()
     mut_pass::Board::new()
+    // hash_set::Board::new()
 }
 
 pub fn from_chars(chars: &[char; 64]) -> Result<impl PlayableBoard, String> {
     // original::Board::from_chars(chars)
     mut_pass::Board::from_chars(chars)
+    // hash_set::Board::from_chars(chars)
 }

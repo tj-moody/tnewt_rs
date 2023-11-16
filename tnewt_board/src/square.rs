@@ -2,7 +2,7 @@ use crate::color::*;
 use color_eyre::eyre::Result;
 use colored::{Colorize, ColoredString};
 
-#[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PieceKind {
     King,
     Queen,

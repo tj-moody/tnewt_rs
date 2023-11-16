@@ -6,7 +6,7 @@ use board::{PlayableBoard, Algorithm};
 fn criterion_benchmark(c: &mut Criterion) {
 
     c.bench_function("New Board Moves", |b| b.iter(|| {
-        let _ = board::new().gen_legal_moves();
+        let _ = board::new().dbg_move_count();
     }));
     let mut random_games = c.benchmark_group("Play Random Game");
     random_games.bench_function("Unmove", |b| b.iter(|| {

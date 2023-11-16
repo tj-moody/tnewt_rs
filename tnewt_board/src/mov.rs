@@ -5,7 +5,7 @@ use crate::board::*;
 use crate::coordinate::*;
 // use crate::implementations::*;
 
-#[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct CastlingMove {
     pub king_move: BasicMove,
     pub rook_move: BasicMove,
@@ -60,7 +60,7 @@ impl CastlingMove {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PromotionMove {
     pub pawn_move: BasicMove,
     pub promotion_kind: PieceKind,
@@ -117,7 +117,7 @@ impl PromotionMove {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct BasicMove {
     pub start_index: usize,
     pub target_index: usize,
@@ -163,7 +163,7 @@ impl BasicMove {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Move {
     BasicMove(BasicMove),
     CastlingMove(CastlingMove),
