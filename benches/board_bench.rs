@@ -1,7 +1,7 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 
 use tnewt_board::*;
-use board::{PlayableBoard, Algorithm};
+use board::{Playable, Algorithm};
 
 fn criterion_benchmark(c: &mut Criterion) {
 

@@ -1,7 +1,7 @@
 mod magic_numbers;
 
 pub mod board;
-pub mod square;
+pub mod piece;
 pub mod mov;
 pub mod coordinate;
 pub mod color;

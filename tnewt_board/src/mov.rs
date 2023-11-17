@@ -1,9 +1,8 @@
 use colored::Colorize;
 
-use crate::square::*;
-use crate::board::*;
-use crate::coordinate::*;
-// use crate::implementations::*;
+use crate::piece::{PieceKind, Piece};
+use crate::board::Playable;
+use crate::coordinate::Coordinate;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct CastlingMove {
@@ -14,21 +13,19 @@ pub struct CastlingMove {
 impl CastlingMove {
      pub fn dbg_moves(castling_moves: &[CastlingMove]) {
         for moves in castling_moves.iter() {
-            let start_indices: [usize; 2] = [moves.king_move, moves.rook_move]
-                .iter()
-                .map(|m| m.start_index)
-                .collect::<Vec<usize>>()
-                .try_into()
-                .unwrap();
+            let start_indices: [usize; 2] = [
+                moves.king_move.start_index,
+                moves.rook_move.start_index,
+            ];
 
             let between_indices = moves.get_squares().0;
             for i in 0..64 {
                 if start_indices.contains(&i) {
                     print!("{} ", '0'.to_string().bright_yellow());
                 } else if between_indices.contains(&i) {
-                    print!("{} ", 'x'.to_string().blue())
+                    print!("{} ", 'x'.to_string().blue());
                 } else {
-                    print!("{} ", '.'.to_string().black())
+                    print!("{} ", '.'.to_string().black());
                 }
                 if i % 8 == 7 { println!() };
             }
@@ -36,6 +33,7 @@ impl CastlingMove {
         }
     }
 
+    #[must_use]
     pub fn from(king_move: &[usize; 2], rook_move: &[usize; 2]) -> Self {
         CastlingMove {
             king_move: BasicMove::from(king_move),
@@ -44,6 +42,7 @@ impl CastlingMove {
     }
 
     /// Returns vec![empty indices], vec![king indices], king_index, rook_index
+    #[must_use]
     pub fn get_squares(&self) -> (Vec<usize>, Vec<usize>, usize, usize) {
         if self == &CastlingMove::from(&[60, 62], &[63, 61]) {
              (vec![61, 62], vec![61, 62], 60, 63)
@@ -67,6 +66,7 @@ pub struct PromotionMove {
 }
 
 impl PromotionMove {
+    #[must_use]
     pub fn from_move(pawn_move: BasicMove) -> Vec<Self> {
         vec![
             PromotionMove {
@@ -89,7 +89,7 @@ impl PromotionMove {
     }
 
     pub fn dbg_moves<B>(promotion_moves: &[PromotionMove], board: &B)
-    where B: PlayableBoard {
+    where B: Playable {
         let mut start_indices: Vec<usize> = promotion_moves
             .iter()
             .map(|pm| pm.pawn_move.start_index)
@@ -100,15 +100,15 @@ impl PromotionMove {
             .iter()
             .map(|m| [m.pawn_move.start_index, m.pawn_move.target_index])
             .collect();
-        for start_index in start_indices.into_iter() {
+        for start_index in start_indices {
             for i in 0..64 {
-                let piece = board.squares()[i].display();
+                let piece = Piece::display_square(board.squares()[i]);
                 if i == start_index {
                     print!("{} ", piece);
                 } else if moves_list.contains(&[start_index, i]) {
-                    print!("{} ", 'x'.to_string().bright_blue())
+                    print!("{} ", 'x'.to_string().bright_blue());
                 } else {
-                    print!("{} ", '.'.to_string().black())
+                    print!("{} ", '.'.to_string().black());
                 }
                 if i % 8 == 7 { println!() };
             }
@@ -130,11 +130,12 @@ impl BasicMove {
             target_index: m[1],
         }
     }
+    #[must_use]
     pub fn into(self) -> Move {
         Move::BasicMove(self)
     }
     pub fn dbg_moves<B>(moves: &[BasicMove], board: &B)
-    where B: PlayableBoard {
+    where B: Playable {
         let mut start_indices: Vec<usize> = moves
             .iter()
             .map(|m| m.start_index)
@@ -146,15 +147,15 @@ impl BasicMove {
             .map(|m| [ m.start_index, m.target_index ])
             .collect();
 
-        for start_index in start_indices.into_iter() {
+        for start_index in start_indices {
             for i in 0..64 {
-                let piece = board.squares()[i].display();
+                let piece = Piece::display_square(board.squares()[i]);
                 if i == start_index {
-                    print!("{} ", piece);
+                    print!("{piece} ");
                 } else if moves_list.contains(&[start_index, i]) {
-                    print!("{} ", 'x'.to_string().bright_blue())
+                    print!("{} ", 'x'.to_string().bright_blue());
                 } else {
-                    print!("{} ", '.'.to_string().black())
+                    print!("{} ", '.'.to_string().black());
                 }
                 if i % 8 == 7 { println!() };
             }
@@ -171,7 +172,25 @@ pub enum Move {
 }
 
 impl Move {
-    pub fn to_string(&self) -> String {
+    // pub fn to_string(&self) -> String {
+    //     let start_index = match self {
+    //         Move::BasicMove(bm) => bm.start_index,
+    //         Move::CastlingMove(cm) => cm.king_move.start_index,
+    //         Move::PromotionMove(pm) => pm.pawn_move.start_index,
+    //     };
+    //     let target_index = match self {
+    //         Move::BasicMove(bm) => bm.target_index,
+    //         Move::CastlingMove(cm) => cm.king_move.target_index,
+    //         Move::PromotionMove(pm) => pm.pawn_move.target_index,
+    //     };
+    //     let start_index = Coordinate::from_index(start_index).to_string();
+    //     let target_index = Coordinate::from_index(target_index).to_string();
+    //     format!("{start_index}{target_index}")
+    // }
+}
+
+impl std::fmt::Display for Move {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let start_index = match self {
             Move::BasicMove(bm) => bm.start_index,
             Move::CastlingMove(cm) => cm.king_move.start_index,
@@ -184,6 +203,6 @@ impl Move {
         };
         let start_index = Coordinate::from_index(start_index).to_string();
         let target_index = Coordinate::from_index(target_index).to_string();
-        format!("{start_index}{target_index}")
+        write!(f, "{start_index}{target_index}")
     }
 }

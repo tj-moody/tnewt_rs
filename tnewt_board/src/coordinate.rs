@@ -1,3 +1,5 @@
+use crate::board::Error;
+
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
 pub enum Coordinate {
     A1, A2, A3, A4, A5, A6, A7, A8,
@@ -10,7 +12,8 @@ pub enum Coordinate {
     H1, H2, H3, H4, H5, H6, H7, H8,
 }
 impl Coordinate {
-    pub fn from(coordinate: &str) -> Result<Option<Self>, String> {
+    #[must_use]
+    pub fn from(coordinate: &str) -> Result<Option<Self>, Error> {
         match coordinate {// {{{
             "a1" => Ok(Some(Coordinate::A1)),
             "a2" => Ok(Some(Coordinate::A2)),
@@ -77,77 +80,10 @@ impl Coordinate {
             "h7" => Ok(Some(Coordinate::H7)),
             "h8" => Ok(Some(Coordinate::H8)),
             "-"  => Ok(None),
-            _    => Err("Invalid FEN: Invalid en passant coordinate".to_string()),
+            _    => Err(Error::InvalidCoordinate(coordinate.to_string())),
         }// }}}
     }
-    pub fn to_string(&self) -> String {
-        match self {// {{{
-            Coordinate::A1 => "a1".to_string(),
-            Coordinate::A2 => "a2".to_string(),
-            Coordinate::A3 => "a3".to_string(),
-            Coordinate::A4 => "a4".to_string(),
-            Coordinate::A5 => "a5".to_string(),
-            Coordinate::A6 => "a6".to_string(),
-            Coordinate::A7 => "a7".to_string(),
-            Coordinate::A8 => "a8".to_string(),
-            Coordinate::B1 => "b1".to_string(),
-            Coordinate::B2 => "b2".to_string(),
-            Coordinate::B3 => "b3".to_string(),
-            Coordinate::B4 => "b4".to_string(),
-            Coordinate::B5 => "b5".to_string(),
-            Coordinate::B6 => "b6".to_string(),
-            Coordinate::B7 => "b7".to_string(),
-            Coordinate::B8 => "b8".to_string(),
-            Coordinate::C1 => "c1".to_string(),
-            Coordinate::C2 => "c2".to_string(),
-            Coordinate::C3 => "c3".to_string(),
-            Coordinate::C4 => "c4".to_string(),
-            Coordinate::C5 => "c5".to_string(),
-            Coordinate::C6 => "c6".to_string(),
-            Coordinate::C7 => "c7".to_string(),
-            Coordinate::C8 => "c8".to_string(),
-            Coordinate::D1 => "d1".to_string(),
-            Coordinate::D2 => "d2".to_string(),
-            Coordinate::D3 => "d3".to_string(),
-            Coordinate::D4 => "d4".to_string(),
-            Coordinate::D5 => "d5".to_string(),
-            Coordinate::D6 => "d6".to_string(),
-            Coordinate::D7 => "d7".to_string(),
-            Coordinate::D8 => "d8".to_string(),
-            Coordinate::E1 => "e1".to_string(),
-            Coordinate::E2 => "e2".to_string(),
-            Coordinate::E3 => "e3".to_string(),
-            Coordinate::E4 => "e4".to_string(),
-            Coordinate::E5 => "e5".to_string(),
-            Coordinate::E6 => "e6".to_string(),
-            Coordinate::E7 => "e7".to_string(),
-            Coordinate::E8 => "e8".to_string(),
-            Coordinate::F1 => "f1".to_string(),
-            Coordinate::F2 => "f2".to_string(),
-            Coordinate::F3 => "f3".to_string(),
-            Coordinate::F4 => "f4".to_string(),
-            Coordinate::F5 => "f5".to_string(),
-            Coordinate::F6 => "f6".to_string(),
-            Coordinate::F7 => "f7".to_string(),
-            Coordinate::F8 => "f8".to_string(),
-            Coordinate::G1 => "g1".to_string(),
-            Coordinate::G2 => "g2".to_string(),
-            Coordinate::G3 => "g3".to_string(),
-            Coordinate::G4 => "g4".to_string(),
-            Coordinate::G5 => "g5".to_string(),
-            Coordinate::G6 => "g6".to_string(),
-            Coordinate::G7 => "g7".to_string(),
-            Coordinate::G8 => "g8".to_string(),
-            Coordinate::H1 => "h1".to_string(),
-            Coordinate::H2 => "h2".to_string(),
-            Coordinate::H3 => "h3".to_string(),
-            Coordinate::H4 => "h4".to_string(),
-            Coordinate::H5 => "h5".to_string(),
-            Coordinate::H6 => "h6".to_string(),
-            Coordinate::H7 => "h7".to_string(),
-            Coordinate::H8 => "h8".to_string(),
-        }// }}}
-    }
+    #[must_use]
     pub fn into_index(self) -> usize {
         match self {// {{{
             Coordinate::A8 => 0,
@@ -216,6 +152,7 @@ impl Coordinate {
             Coordinate::H1 => 63,
         }// }}}
     }
+    #[must_use]
     pub fn from_index(index: usize) -> Self {
         match index {// {{{
             0 => Coordinate::A8,
@@ -284,5 +221,76 @@ impl Coordinate {
             63 => Coordinate::H1,
             _  => panic!("Invalid index"),
         }// }}}
+    }
+}
+
+impl std::fmt::Display for Coordinate {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", match self {// {{{
+            Coordinate::A1 => "a1",
+            Coordinate::A2 => "a2",
+            Coordinate::A3 => "a3",
+            Coordinate::A4 => "a4",
+            Coordinate::A5 => "a5",
+            Coordinate::A6 => "a6",
+            Coordinate::A7 => "a7",
+            Coordinate::A8 => "a8",
+            Coordinate::B1 => "b1",
+            Coordinate::B2 => "b2",
+            Coordinate::B3 => "b3",
+            Coordinate::B4 => "b4",
+            Coordinate::B5 => "b5",
+            Coordinate::B6 => "b6",
+            Coordinate::B7 => "b7",
+            Coordinate::B8 => "b8",
+            Coordinate::C1 => "c1",
+            Coordinate::C2 => "c2",
+            Coordinate::C3 => "c3",
+            Coordinate::C4 => "c4",
+            Coordinate::C5 => "c5",
+            Coordinate::C6 => "c6",
+            Coordinate::C7 => "c7",
+            Coordinate::C8 => "c8",
+            Coordinate::D1 => "d1",
+            Coordinate::D2 => "d2",
+            Coordinate::D3 => "d3",
+            Coordinate::D4 => "d4",
+            Coordinate::D5 => "d5",
+            Coordinate::D6 => "d6",
+            Coordinate::D7 => "d7",
+            Coordinate::D8 => "d8",
+            Coordinate::E1 => "e1",
+            Coordinate::E2 => "e2",
+            Coordinate::E3 => "e3",
+            Coordinate::E4 => "e4",
+            Coordinate::E5 => "e5",
+            Coordinate::E6 => "e6",
+            Coordinate::E7 => "e7",
+            Coordinate::E8 => "e8",
+            Coordinate::F1 => "f1",
+            Coordinate::F2 => "f2",
+            Coordinate::F3 => "f3",
+            Coordinate::F4 => "f4",
+            Coordinate::F5 => "f5",
+            Coordinate::F6 => "f6",
+            Coordinate::F7 => "f7",
+            Coordinate::F8 => "f8",
+            Coordinate::G1 => "g1",
+            Coordinate::G2 => "g2",
+            Coordinate::G3 => "g3",
+            Coordinate::G4 => "g4",
+            Coordinate::G5 => "g5",
+            Coordinate::G6 => "g6",
+            Coordinate::G7 => "g7",
+            Coordinate::G8 => "g8",
+            Coordinate::H1 => "h1",
+            Coordinate::H2 => "h2",
+            Coordinate::H3 => "h3",
+            Coordinate::H4 => "h4",
+            Coordinate::H5 => "h5",
+            Coordinate::H6 => "h6",
+            Coordinate::H7 => "h7",
+            Coordinate::H8 => "h8",
+        })// }}}
     }
 }

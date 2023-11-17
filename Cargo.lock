@@ -747,7 +747,6 @@ dependencies = [
  "colored",
  "criterion",
  "rand",
- "rustc-hash",
  "serde",
  "serde_json",
  "tnewt_board",

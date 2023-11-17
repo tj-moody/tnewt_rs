@@ -1,31 +1,34 @@
-use crate::mov::*;
-use crate::color::*;
+use crate::mov::{CastlingMove, Move};
+use crate::color::Color;
 
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
-pub enum CastlingRights {
+pub enum Rights {
     Neither,
     Kingside,
     Queenside,
     Both,
 }
-impl CastlingRights {
+impl Rights {
+    #[must_use]
     pub fn from(king: bool, queen: bool) -> Self {
         match (king, queen) {
-            (true, true) => CastlingRights::Both,
-            (true, false) => CastlingRights::Kingside,
-            (false, true) => CastlingRights::Queenside,
-            (false, false) => CastlingRights::Neither,
+            (true, true) => Rights::Both,
+            (true, false) => Rights::Kingside,
+            (false, true) => Rights::Queenside,
+            (false, false) => Rights::Neither,
         }
     }
+
+    #[must_use]
     pub fn to_str(&self) -> &str {
         match self {
-            CastlingRights::Neither   => "",
-            CastlingRights::Kingside  => "k",
-            CastlingRights::Queenside => "q",
-            CastlingRights::Both      => "kq",
+            Rights::Neither   => "",
+            Rights::Kingside  => "k",
+            Rights::Queenside => "q",
+            Rights::Both      => "kq",
         }
     }
-    pub fn gen_moves(&self, color: &Color) -> Result<Vec<Move>, String> {
+    pub fn gen_moves(&self, color: &Color) -> Vec<Move> {
         // Magic values: king, rook
         let kingside = match color {
             Color::White => Move::CastlingMove(CastlingMove::from(
@@ -46,49 +49,48 @@ impl CastlingRights {
         };
 
         match self {
-            CastlingRights::Neither   => Ok(vec![]),
-            CastlingRights::Kingside  => Ok(vec![kingside]),
-            CastlingRights::Queenside => Ok(vec![queenside]),
-            CastlingRights::Both      => Ok(vec![kingside, queenside]),
+            Rights::Neither   => vec![],
+            Rights::Kingside  => vec![kingside],
+            Rights::Queenside => vec![queenside],
+            Rights::Both      => vec![kingside, queenside],
         }
     }
-    pub fn revoke(&mut self, right: CastlingRights) {
+    pub fn revoke(&mut self, right: Rights) {
         match right {
-            CastlingRights::Neither => return,
-            CastlingRights::Both => { *self = CastlingRights::Neither; return },
+            Rights::Neither => return,
+            Rights::Both => { *self = Rights::Neither; return },
             _ => (),
         }
         match self {
-            CastlingRights::Neither => (),
-            CastlingRights::Kingside => match right {
-                CastlingRights::Kingside =>  *self = CastlingRights::Neither ,
-                CastlingRights::Queenside => (),
+            Rights::Neither => (),
+            Rights::Kingside => match right {
+                Rights::Kingside =>  *self = Rights::Neither ,
                 _ => (),
             },
-            CastlingRights::Queenside => match right {
-                CastlingRights::Kingside => (),
-                CastlingRights::Queenside => *self = CastlingRights::Neither,
+            Rights::Queenside => match right {
+                Rights::Queenside => *self = Rights::Neither,
                 _ => (),
             },
-            CastlingRights::Both => match right {
-                CastlingRights::Kingside => *self = CastlingRights::Queenside,
-                CastlingRights::Queenside => *self = CastlingRights::Kingside,
+            Rights::Both => match right {
+                Rights::Kingside => *self = Rights::Queenside,
+                Rights::Queenside => *self = Rights::Kingside,
                 _ => (),
             },
         }
     }
 }
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
-pub struct CastlingState {
-    pub white: CastlingRights,
-    pub black: CastlingRights,
+pub struct State {
+    pub white: Rights,
+    pub black: Rights,
 }
-impl CastlingState {
+impl State {
+    #[must_use]
     pub fn from(rights: &str) -> Self {
         if rights == "-" {
-            return CastlingState {
-                white: CastlingRights::Neither,
-                black: CastlingRights::Neither,
+            return State {
+                white: Rights::Neither,
+                black: Rights::Neither,
             }
         }
         let white_k = rights.contains('K');
@@ -96,11 +98,12 @@ impl CastlingState {
         let black_k = rights.contains('k');
         let black_q = rights.contains('q');
 
-        CastlingState {
-            white: CastlingRights::from(white_k, white_q),
-            black: CastlingRights::from(black_k, black_q),
+        State {
+            white: Rights::from(white_k, white_q),
+            black: Rights::from(black_k, black_q),
         }
     }
+    #[must_use]
     pub fn to_str(&self) -> String {
         format!(
             "{}{}",
@@ -108,13 +111,13 @@ impl CastlingState {
             self.black.to_str().to_ascii_lowercase().as_str()
         )
     }
-    pub fn get_moves(&self, color: &Color) -> Result<Vec<Move>, String> {
+    pub fn get_moves(&self, color: &Color) -> Vec<Move> {
         match color {
             Color::White => self.white.gen_moves(color),
             Color::Black => self.black.gen_moves(color),
         }
     }
-    pub fn revoke(&mut self, right: CastlingRights, color: &Color) {
+    pub fn revoke(&mut self, right: Rights, color: &Color) {
         match color {
             Color::White => self.white.revoke(right),
             Color::Black => self.black.revoke(right),

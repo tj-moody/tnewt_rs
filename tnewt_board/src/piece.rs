@@ -1,5 +1,4 @@
-use crate::color::*;
-use color_eyre::eyre::Result;
+use crate::{color::*, board};
 use colored::{Colorize, ColoredString};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -13,6 +12,7 @@ pub enum PieceKind {
 }
 
 impl PieceKind {
+    #[must_use]
     pub fn to_char(&self) -> char {
         match self {
             PieceKind::King   => 'k',
@@ -24,6 +24,7 @@ impl PieceKind {
         }
     }
 
+    #[must_use]
     pub fn from(char: char) -> Self {
         match char {
             'k' => PieceKind::King,
@@ -43,40 +44,24 @@ pub struct Piece {
     pub color: Color,
 }
 
+pub type Square = Option<Piece>;
+
 impl Piece {
-    pub fn to_char(&self) -> char {
-        match self.color {
-            Color::White => self.kind.to_char().to_ascii_uppercase(),
-            Color::Black => self.kind.to_char().to_ascii_lowercase(),
+    #[must_use]
+    pub fn square_to_char(square: Square) -> char {
+        match square {
+            Some(piece) => match piece.color {
+                Color::White => piece.kind.to_char().to_ascii_uppercase(),
+                Color::Black => piece.kind.to_char().to_ascii_lowercase(),
+            },
+            None => '.',
         }
     }
-
-    pub fn is_same_color(&self, piece: &Piece) -> bool {
-        self.color == piece.color
-    }
-
-    pub fn into(self) -> Square {
-        Square::Some(self)
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
-pub enum Square {
-    Some(Piece),
-    Empty,
-}
-
-impl Square {
-    pub fn to_char(&self) -> char {
-        match self {
-            Square::Some(piece) => piece.to_char(),
-            Square::Empty => '.',
-        }
-    }
-    pub fn display(&self) -> ColoredString {
-        let string = self.to_char().to_string();
-        match self {
-            Square::Some(piece) => match piece.kind {
+    #[must_use]
+    pub fn display_square(square: Square) -> ColoredString {
+        let string = Piece::square_to_char(square).to_string();
+        match square {
+            Some(piece) => match piece.kind {
                 PieceKind::King => match piece.color {
                     Color::White => string.bright_yellow().bold(),
                     Color::Black => string.bright_blue().bold(),
@@ -86,25 +71,24 @@ impl Square {
                     Color::Black => string.bright_black().bold(),
                 },
             },
-            Square::Empty => string.black(),
+            None => string.black(),
         }
     }
-    pub fn piece(&self) -> Result<&Piece, String> {
-        match self {
-            Square::Some(piece) => Ok(piece),
-            Square::Empty => Err("Square is empty".to_string())
+
+    pub fn is_same_color(square1: Square, square2: Square) -> bool {
+        match square1 {
+            None => false,
+            Some(piece1) => match square2 {
+                Some(piece2) => piece1.color == piece2.color,
+                None => false,
+            }
         }
     }
-    pub fn is_empty(&self) -> bool {
-        match self {
-            Square::Some(_) => false,
-            Square::Empty => true,
+
+    pub fn get_piece(square: Square) -> Result<Piece, board::Error> {
+        match square {
+            Some(piece) => Ok(piece),
+            None => Err(board::Error::MoveEmptySquare),
         }
-    }
-    pub fn is_same_color(&self, square: Square) -> bool {
-        if self.is_empty() || square.is_empty() {
-            return false;
-        }
-        self.piece().unwrap().color == square.piece().unwrap().color
     }
 }

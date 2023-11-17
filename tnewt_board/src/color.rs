@@ -4,6 +4,7 @@ pub enum Color {
     Black,
 }
 impl Color {
+    #[must_use]
     pub fn from(turn: &str) -> Self {
         match turn {
             "w" => Color::White,
@@ -11,6 +12,7 @@ impl Color {
             _   => panic!("Invalid FEN (turn)"), // TODO: Handle error
         }
     }
+    #[must_use]
     pub fn opposite(&self) -> Color {
         match self {
             Color::White => Color::Black,

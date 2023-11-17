@@ -3,9 +3,9 @@
 mod tests {
     use tnewt_board::*;
 
-    use board::{PlayableBoard, Algorithm};
+    use board::{Playable, Algorithm};
     use color::*;
-    use square::*;
+    use piece::*;
 
     const TEST_FENS: [(&str, [u32; 3]); 6] = [
         ("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",                 [20, 400 , 8902 ]),
@@ -18,7 +18,7 @@ mod tests {
 
 
     #[test]
-    fn default_fen_functions() -> Result<(), String> {
+    fn default_fen_functions() -> Result<(), board::Error> {
         let board = board::new();
         let board2 = board::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")?;
         assert_eq!(board.squares(), board2.squares());
@@ -28,65 +28,81 @@ mod tests {
 
     #[test]
     fn is_same_color() {
-        let white_square1 = Square::Some(Piece {
+        let white_square1 = Some(Piece {
             kind: PieceKind::Queen,
             color: Color::White
         });
-        let white_square2 = Square::Some(Piece {
+        let white_square2 = Some(Piece {
             kind: PieceKind::Pawn,
             color: Color::White
         });
-        let black_square1 = Square::Some(Piece {
+        let black_square1 = Some(Piece {
             kind: PieceKind::King,
             color: Color::Black
         });
-        let black_square2 = Square::Some(Piece {
+        let black_square2 = Some(Piece {
             kind: PieceKind::Rook,
             color: Color::Black
         });
-        let empty_square = Square::Empty;
-        assert!(!white_square1.is_same_color(black_square1));
-        assert!(!white_square1.is_same_color(empty_square));
-        assert!(white_square1.is_same_color(white_square2));
+        let empty_square = None;
+        assert!(!Piece::is_same_color(white_square1, black_square1));
+        assert!(!Piece::is_same_color(white_square1, black_square1));
+        assert!(!Piece::is_same_color(white_square1, empty_square));
+        assert!(Piece::is_same_color(white_square1, white_square2));
 
-        assert!(!black_square1.is_same_color(white_square1));
-        assert!(!black_square1.is_same_color(empty_square));
-        assert!(black_square1.is_same_color(black_square2));
+        assert!(!Piece::is_same_color(black_square1, white_square1));
+        assert!(!Piece::is_same_color(black_square1, empty_square));
+        assert!(Piece::is_same_color(black_square1, black_square2));
     }
 
     #[test]
-    fn clone_depth_3_num_positions() -> Result<(), String> {
+    fn clone_depth_3_num_positions() -> Result<(), board::Error> {
         for (i, (fen, num_positions)) in TEST_FENS.into_iter().enumerate() {
             let mut board = board::from_fen(fen)?;
             board.dbg_set_algorithm(Algorithm::Clone);
             println!("Test Position {i}");
             board.display();
-            for j in 0..3 {
-                assert_eq!(board.dbg_depth_num_positions(j as i32 + 1)?, num_positions[j]);
+            for (j, &num_position) in num_positions.iter().enumerate() {
+                assert_eq!(board.dbg_depth_num_positions(j as i32 + 1)?, num_position);
             }
         }
         Ok(())
     }
 
     #[test]
-    fn unmove_depth_3_num_positions() -> Result<(), String> {
+    fn unmove_depth_3_num_positions() -> Result<(), board::Error> {
         for (i, (fen, num_positions)) in TEST_FENS.into_iter().enumerate() {
             let mut board = board::from_fen(fen)?;
             board.dbg_set_algorithm(Algorithm::Unmove);
             println!("Test Position {i}");
             board.display();
-            for j in 0..3 {
-                assert_eq!(board.dbg_depth_num_positions(j as i32 + 1)?, num_positions[j]);
+            for (j, &num_position) in num_positions.iter().enumerate() {
+                assert_eq!(board.dbg_depth_num_positions(j as i32 + 1)?, num_position);
             }
         }
         Ok(())
     }
 
     #[test]
-    fn play_random_moves() -> Result<(), String> {
+    fn clone_play_random_games() -> Result<(), board::Error> {
         let mut board = board::new();
+        board.dbg_set_algorithm(Algorithm::Clone);
         const DEPTH: u32 = 10_000;
-        let _game_state = board.play_random_game(DEPTH)?;
+        for _ in 0..10_000 {
+            let game_state = board.play_random_game(DEPTH);
+            assert!(game_state.is_ok())
+        }
+        Ok(())
+    }
+    #[test]
+    fn unmove_play_random_games() -> Result<(), board::Error> {
+        let mut board = board::new();
+        board.dbg_set_algorithm(Algorithm::Unmove);
+        const DEPTH: u32 = 10_000;
+        for _ in 0..10_000 {
+            let game_state = board.play_random_game(DEPTH);
+            assert!(game_state.is_ok())
+        }
         Ok(())
     }
 }
