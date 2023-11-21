@@ -328,7 +328,8 @@ impl Board {
     /// This function does not actually mutate self, as it calls `make_move`
     /// and `unmake_move` sequentially, without mutating anywhere else.
     fn gen_legal_moves(&mut self) -> Result<Vec<Move>, board::Error> {
-        Ok(self.gen_pseudo_legal_moves()?.into_iter().filter(|m| {
+        let mut moves = self.gen_pseudo_legal_moves()?;
+        moves.retain(|m| {
             let mut king_indices: Vec<usize>;
             if let Move::CastlingMove(cm) = m {
                 king_indices = cm.get_squares().1;
@@ -382,7 +383,8 @@ impl Board {
             }
 
             true
-        }).collect::<Vec<Move>>())
+        });
+        Ok(moves)
     }
 }
 

@@ -1,5 +1,7 @@
 // use rustc_hash::FxHashSet;
 
+use std::num::ParseIntError;
+
 use crate::piece::{PieceKind, Square};
 use crate::mov::Move;
 use crate::color::Color;
@@ -12,10 +14,12 @@ pub enum GameState {
     Victory(Color),
 }
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Error {
     InvalidCoordinate(String),
     InvalidFenBoardLength(String),
+    InvalidHalfmoveStr(ParseIntError),
+    InvalidFullmoveStr(ParseIntError),
     PieceFromEmptySquare,
     MoveEmptySquare,
     InvalidPieceChar(char),
@@ -230,16 +234,15 @@ pub trait Playable {
 }
 
 
-use crate::implementations::*;
-pub fn from_fen(fen: &str) -> Result<impl Playable, Error> {
-    mut_pass::Board::from_fen(fen)
+pub fn from_fen<B: Playable>(fen: &str) -> Result<B, Error> {
+    B::from_fen(fen)
 }
 
 #[must_use]
-pub fn new() -> impl Playable {
-    mut_pass::Board::new()
+pub fn new<B: Playable>() -> B {
+    B::new()
 }
 
-pub fn from_chars(chars: &[char; 64]) -> Result<impl Playable, Error> {
-    mut_pass::Board::from_chars(chars)
+pub fn from_chars<B: Playable>(chars: &[char; 64]) -> Result<impl Playable, Error> {
+    B::from_chars(chars)
 }

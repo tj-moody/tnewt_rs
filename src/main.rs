@@ -2,6 +2,7 @@
 use color_eyre::eyre::Result;
 
 use tnewt_board::board;
+use tnewt_board::implementations;
 use board::Playable;
 
 #[allow(dead_code)]
@@ -47,7 +48,7 @@ fn main() -> Result<(), board::Error> {
     //     println!("Game {i}: {:?}", board.play_random_game(500)?);
     // }
 
-    let mut board = board::from_fen(
+    let mut board = board::from_fen::<implementations::mut_pass::Board>(
         "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
     )?;
     board.dbg_set_algorithm(board::Algorithm::Clone);
