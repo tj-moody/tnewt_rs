@@ -1,5 +1,5 @@
-use crate::{color::*, board};
-use colored::{Colorize, ColoredString};
+use crate::{board, color::*};
+use colored::{ColoredString, Colorize};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PieceKind {
@@ -13,6 +13,7 @@ pub enum PieceKind {
 
 impl PieceKind {
     #[must_use]
+    #[rustfmt::skip]
     pub fn to_char(&self) -> char {
         match self {
             PieceKind::King   => 'k',
@@ -25,15 +26,15 @@ impl PieceKind {
     }
 
     #[must_use]
-    pub fn from(char: char) -> Self {
+    pub fn from(char: char) -> Result<Self, board::Error> {
         match char {
-            'k' => PieceKind::King,
-            'q' => PieceKind::Queen,
-            'r' => PieceKind::Rook,
-            'b' => PieceKind::Bishop,
-            'n' => PieceKind::Knight,
-            'p' => PieceKind::Pawn,
-            _   => panic!("Invalid piece: {}", char), // TODO: Handle error
+            'k' => Ok(PieceKind::King),
+            'q' => Ok(PieceKind::Queen),
+            'r' => Ok(PieceKind::Rook),
+            'b' => Ok(PieceKind::Bishop),
+            'n' => Ok(PieceKind::Knight),
+            'p' => Ok(PieceKind::Pawn),
+            _ => Err(board::Error::InvalidPieceChar(char)),
         }
     }
 }
@@ -65,7 +66,7 @@ impl Piece {
                 PieceKind::King => match piece.color {
                     Color::White => string.bright_yellow().bold(),
                     Color::Black => string.bright_blue().bold(),
-                }
+                },
                 _ => match piece.color {
                     Color::White => string.bright_white().bold(),
                     Color::Black => string.bright_black().bold(),
@@ -81,7 +82,7 @@ impl Piece {
             Some(piece1) => match square2 {
                 Some(piece2) => piece1.color == piece2.color,
                 None => false,
-            }
+            },
         }
     }
 

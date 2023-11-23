@@ -1,8 +1,7 @@
 use colored::Colorize;
 
-use crate::piece::{PieceKind, Piece};
-use crate::board::Playable;
 use crate::coordinate::Coordinate;
+use crate::piece::{Piece, PieceKind};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct CastlingMove {
@@ -11,12 +10,10 @@ pub struct CastlingMove {
 }
 
 impl CastlingMove {
-     pub fn dbg_moves(castling_moves: &[CastlingMove]) {
+    pub fn dbg_moves(castling_moves: &[CastlingMove]) {
         for moves in castling_moves.iter() {
-            let start_indices: [usize; 2] = [
-                moves.king_move.start_index,
-                moves.rook_move.start_index,
-            ];
+            let start_indices: [usize; 2] =
+                [moves.king_move.start_index, moves.rook_move.start_index];
 
             let between_indices = moves.get_squares().0;
             for i in 0..64 {
@@ -27,7 +24,9 @@ impl CastlingMove {
                 } else {
                     print!("{} ", '.'.to_string().black());
                 }
-                if i % 8 == 7 { println!() };
+                if i % 8 == 7 {
+                    println!()
+                };
             }
             println!();
         }
@@ -45,16 +44,15 @@ impl CastlingMove {
     #[must_use]
     pub fn get_squares(&self) -> (Vec<usize>, Vec<usize>, usize, usize) {
         if self == &CastlingMove::from(&[60, 62], &[63, 61]) {
-             (vec![61, 62], vec![61, 62], 60, 63)
+            (vec![61, 62], vec![61, 62], 60, 63)
         } else if self == &CastlingMove::from(&[4, 6], &[7, 5]) {
-             (vec![5, 6], vec![5, 6], 4, 7)
+            (vec![5, 6], vec![5, 6], 4, 7)
         } else if self == &CastlingMove::from(&[60, 58], &[56, 59]) {
-             (vec![57, 58, 59], vec![58, 59], 60, 56)
+            (vec![57, 58, 59], vec![58, 59], 60, 56)
         } else if self == &CastlingMove::from(&[4, 2], &[0, 3]) {
-             (vec![1, 2, 3], vec![2, 3], 4, 0)
+            (vec![1, 2, 3], vec![2, 3], 4, 0)
         } else {
             panic!("Invalid castling move");
-
         }
     }
 }
@@ -109,7 +107,9 @@ impl PromotionMove {
                 } else {
                     print!("{} ", '.'.to_string().black());
                 }
-                if i % 8 == 7 { println!() };
+                if i % 8 == 7 {
+                    println!()
+                };
             }
             println!();
         }
@@ -134,15 +134,12 @@ impl BasicMove {
         Move::BasicMove(self)
     }
     pub fn dbg_moves(moves: &[BasicMove], squares: &[Option<Piece>; 64]) {
-        let mut start_indices: Vec<usize> = moves
-            .iter()
-            .map(|m| m.start_index)
-            .collect();
+        let mut start_indices: Vec<usize> = moves.iter().map(|m| m.start_index).collect();
         start_indices.dedup();
 
         let moves_list: Vec<[usize; 2]> = moves
             .iter()
-            .map(|m| [ m.start_index, m.target_index ])
+            .map(|m| [m.start_index, m.target_index])
             .collect();
 
         for start_index in start_indices {
@@ -155,7 +152,9 @@ impl BasicMove {
                 } else {
                     print!("{} ", '.'.to_string().black());
                 }
-                if i % 8 == 7 { println!() };
+                if i % 8 == 7 {
+                    println!()
+                };
             }
             println!();
         }
@@ -167,24 +166,6 @@ pub enum Move {
     BasicMove(BasicMove),
     CastlingMove(CastlingMove),
     PromotionMove(PromotionMove),
-}
-
-impl Move {
-    // pub fn to_string(&self) -> String {
-    //     let start_index = match self {
-    //         Move::BasicMove(bm) => bm.start_index,
-    //         Move::CastlingMove(cm) => cm.king_move.start_index,
-    //         Move::PromotionMove(pm) => pm.pawn_move.start_index,
-    //     };
-    //     let target_index = match self {
-    //         Move::BasicMove(bm) => bm.target_index,
-    //         Move::CastlingMove(cm) => cm.king_move.target_index,
-    //         Move::PromotionMove(pm) => pm.pawn_move.target_index,
-    //     };
-    //     let start_index = Coordinate::from_index(start_index).to_string();
-    //     let target_index = Coordinate::from_index(target_index).to_string();
-    //     format!("{start_index}{target_index}")
-    // }
 }
 
 impl std::fmt::Display for Move {

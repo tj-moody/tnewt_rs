@@ -1,6 +1,7 @@
 use crate::board::Error;
 
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
+#[rustfmt::skip]
 pub enum Coordinate {
     A1, A2, A3, A4, A5, A6, A7, A8,
     B1, B2, B3, B4, B5, B6, B7, B8,
@@ -13,6 +14,7 @@ pub enum Coordinate {
 }
 impl Coordinate {
     #[must_use]
+    #[rustfmt::skip]
     pub fn from(coordinate: &str) -> Result<Option<Self>, Error> {
         match coordinate {// {{{
             "a1" => Ok(Some(Coordinate::A1)),
@@ -84,6 +86,7 @@ impl Coordinate {
         }// }}}
     }
     #[must_use]
+    #[rustfmt::skip]
     pub fn into_index(self) -> usize {
         match self {// {{{
             Coordinate::A8 => 0,
@@ -153,6 +156,7 @@ impl Coordinate {
         }// }}}
     }
     #[must_use]
+    #[rustfmt::skip]
     pub fn from_index(index: usize) -> Self {
         match index {// {{{
             0 => Coordinate::A8,
@@ -225,6 +229,7 @@ impl Coordinate {
 }
 
 impl std::fmt::Display for Coordinate {
+    #[rustfmt::skip]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", match self {// {{{
             Coordinate::A1 => "a1",

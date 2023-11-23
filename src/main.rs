@@ -43,9 +43,7 @@ fn main() -> Result<(), board::Error> {
 
     let mut board = board::from_fen::<implementations::retain::Board>("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")?;
     board.display();
-
-    board.set_algorithm(board::Algorithm::Clone);
-    dbg!(board.gen_legal_moves()?);
+    println!("{}", board.depth_num_positions(4)?);
 
     // for i in 1..15 {
     //     println!("{}", board.dbg_depth_num_positions(i)?);

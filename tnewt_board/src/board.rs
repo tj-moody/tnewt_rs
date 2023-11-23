@@ -23,9 +23,10 @@ pub enum Error {
     InvalidFenBoardLength(String),
     InvalidHalfmoveStr(ParseIntError),
     InvalidFullmoveStr(ParseIntError),
+    InvalidColorStr(String),
+    InvalidPieceChar(char),
     PieceFromEmptySquare,
     MoveEmptySquare,
-    InvalidPieceChar(char),
     NoKing,
     UndoFromFirstMove,
 }
@@ -49,7 +50,6 @@ pub enum Algorithm {
     Unmove,
 }
 
-// TODO: Only expose externally necessary functions
 // TODO: Unwrap functions that (if move logic is correct) should never error,
 //       i.e. move generation functions
 //
@@ -279,7 +279,6 @@ pub trait Playable: Clone + Debug {
         Ok(())
     }
 
-
     /// Move piece from `start_index` to `target_index`.
     ///
     /// # Errors
@@ -366,14 +365,13 @@ pub trait Playable: Clone + Debug {
                     let mut board = self.clone();
                     board.make_move(mov)?;
                     board.depth_num_positions(depth - 1)?
-
-                },
+                }
                 Algorithm::Unmove => {
                     self.make_move(mov)?;
                     let n = self.depth_num_positions(depth - 1)?;
                     self.unmake_move()?;
                     n
-                },
+                }
             };
             total_positions += num_moves;
             println!("{mov}: {num_moves}");
@@ -412,7 +410,7 @@ pub trait Playable: Clone + Debug {
     ///
     /// This function will return an error if move generation fails,
     /// if `mov` is illegal, or if the player has no king.
-    fn play_legal_move(&mut self, mov: Option<&Move> ) -> Result<(), Error>;
+    fn play_legal_move(&mut self, mov: Option<&Move>) -> Result<(), Error>;
 
     /// Play a random game up to `move_limit` moves.
     /// Will leave the board in the last position of the game.
@@ -421,10 +419,7 @@ pub trait Playable: Clone + Debug {
     ///
     /// This function will return an error if move generation fails
     // fn play_random_game(&mut self, move_limit: u32) -> Result<GameState, Error>;
-    fn play_random_game(
-        &mut self,
-        move_limit: u32,
-    ) -> Result<GameState, Error> {
+    fn play_random_game(&mut self, move_limit: u32) -> Result<GameState, Error> {
         use rand::{seq::SliceRandom, thread_rng};
         for _ in 0..move_limit {
             let moves = self.gen_legal_moves()?;
@@ -432,7 +427,9 @@ pub trait Playable: Clone + Debug {
             let mut rng = thread_rng();
             let mov = moves.choose(&mut rng);
             self.play_legal_move(mov)?;
-            if self.state().game_state != GameState::Playing { break }
+            if self.state().game_state != GameState::Playing {
+                break;
+            }
         }
         Ok(self.state().game_state)
     }
