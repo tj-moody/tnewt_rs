@@ -41,13 +41,9 @@ fn main() -> Result<(), board::Error> {
     //     ' ',' ',' ',' ','K',' ',' ',' ', // 56 57 58 59 60 61 62 63
     // ])?;
 
-    let mut board = board::from_fen::<implementations::retain::Board>("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")?;
+    let mut board = board::from_fen::<implementations::pre_filter::Board>("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")?;
     board.display();
-    println!("{}", board.depth_num_positions(4)?);
-
-    // for i in 1..15 {
-    //     println!("{}", board.dbg_depth_num_positions(i)?);
-    // }
+    println!("{}", board.depth_num_positions(5)?);
 
     Ok(())
 }

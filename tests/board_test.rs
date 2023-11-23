@@ -17,11 +17,11 @@ mod tests {
     ];
 
     fn new() -> impl Playable {
-        board::new::<implementations::retain::Board>()
+        board::new::<implementations::pre_filter::Board>()
     }
 
     fn from_fen(fen: &str) -> Result<impl Playable, board::Error> {
-        board::from_fen::<implementations::retain::Board>(fen)
+        board::from_fen::<implementations::pre_filter::Board>(fen)
     }
 
 

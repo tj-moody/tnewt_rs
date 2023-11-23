@@ -7,14 +7,14 @@ fn old_board() -> impl Playable {
     board::new::<implementations::retain::Board>()
 }
 fn old_name() -> String {
-    "MutPass".into()
+    "Retain".into()
 }
 
 fn new_board() -> impl Playable {
-    board::new::<implementations::retain::Board>()
+    board::new::<implementations::pre_filter::Board>()
 }
 fn new_name() -> String {
-    "Retain".into()
+    "PreFilter".into()
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
