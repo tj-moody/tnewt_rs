@@ -16,11 +16,19 @@ mod tests {
         ("r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10", [46, 2079, 89890])
     ];
 
+    fn new() -> impl Playable {
+        board::new::<implementations::retain::Board>()
+    }
+
+    fn from_fen(fen: &str) -> Result<impl Playable, board::Error> {
+        board::from_fen::<implementations::retain::Board>(fen)
+    }
+
 
     #[test]
     fn default_fen_functions() -> Result<(), board::Error> {
-        let board = board::new();
-        let board2 = board::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")?;
+        let board = new();
+        let board2 = from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")?;
         assert_eq!(board.squares(), board2.squares());
         assert_eq!(board.state(), board2.state());
         Ok(())
@@ -58,12 +66,13 @@ mod tests {
     #[test]
     fn clone_depth_3_num_positions() -> Result<(), board::Error> {
         for (i, (fen, num_positions)) in TEST_FENS.into_iter().enumerate() {
-            let mut board = board::from_fen(fen)?;
-            board.dbg_set_algorithm(Algorithm::Clone);
+            let mut board = from_fen(fen)?;
+            board.set_algorithm(Algorithm::Clone);
             println!("Test Position {i}");
+            board.gen_legal_moves()?;
             board.display();
             for (j, &num_position) in num_positions.iter().enumerate() {
-                assert_eq!(board.dbg_depth_num_positions(j as i32 + 1)?, num_position);
+                assert_eq!(board.depth_num_positions(j as i32 + 1)?, num_position);
             }
         }
         Ok(())
@@ -72,12 +81,13 @@ mod tests {
     #[test]
     fn unmove_depth_3_num_positions() -> Result<(), board::Error> {
         for (i, (fen, num_positions)) in TEST_FENS.into_iter().enumerate() {
-            let mut board = board::from_fen(fen)?;
-            board.dbg_set_algorithm(Algorithm::Unmove);
+            let mut board = from_fen(fen)?;
+            board.set_algorithm(Algorithm::Unmove);
             println!("Test Position {i}");
             board.display();
             for (j, &num_position) in num_positions.iter().enumerate() {
-                assert_eq!(board.dbg_depth_num_positions(j as i32 + 1)?, num_position);
+                println!("{j}");
+                assert_eq!(board.depth_num_positions(j as i32 + 1)?, num_position);
             }
         }
         Ok(())
@@ -85,8 +95,8 @@ mod tests {
 
     #[test]
     fn clone_play_random_games() -> Result<(), board::Error> {
-        let mut board = board::new();
-        board.dbg_set_algorithm(Algorithm::Clone);
+        let mut board = new();
+        board.set_algorithm(Algorithm::Clone);
         const DEPTH: u32 = 10_000;
         for _ in 0..10_000 {
             let game_state = board.play_random_game(DEPTH);
@@ -96,8 +106,8 @@ mod tests {
     }
     #[test]
     fn unmove_play_random_games() -> Result<(), board::Error> {
-        let mut board = board::new();
-        board.dbg_set_algorithm(Algorithm::Unmove);
+        let mut board = new();
+        board.set_algorithm(Algorithm::Unmove);
         const DEPTH: u32 = 10_000;
         for _ in 0..10_000 {
             let game_state = board.play_random_game(DEPTH);

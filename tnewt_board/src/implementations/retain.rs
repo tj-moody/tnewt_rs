@@ -7,7 +7,7 @@ use board::Playable;
 use crate::{piece, mov, color, castling, coordinate};
 
 use piece::{Piece, PieceKind};
-use mov::{BasicMove, CastlingMove, Move, PromotionMove};
+use mov::{BasicMove, Move, PromotionMove};
 use color::Color;
 use coordinate::Coordinate;
 
@@ -27,7 +27,7 @@ pub struct Board {
     pub algorithm: board::Algorithm,
 }
 
-const DEBUG_HISTORY: bool = true;
+const STORE_HISTORY: bool = false;
 
 // TODO: Add 0..64 range checking (basically everywhere)
 impl Board {
@@ -306,24 +306,10 @@ impl Board {
         Ok(false)
     }
 
-    fn play_optional_move(
-        &mut self,
-        m: Option<&Move>,
-    ) -> Result<(), board::Error> {
-        match m {
-            Some(mov) => self.make_move(mov)?,
-            None => {
-                if self.attacked(self.king_index(self.state.turn)?)? {
-                    self.state.game_state = board::GameState::Victory(
-                        self.state.turn.opposite(),
-                    );
-                } else {
-                    self.state.game_state = board::GameState::Draw;
-                }
-            }
-        };
-        Ok(())
-    }
+
+}
+
+impl Playable for Board {
 
     /// This function does not actually mutate self, as it calls `make_move`
     /// and `unmake_move` sequentially, without mutating anywhere else.
@@ -359,7 +345,7 @@ impl Board {
                     king_index = match self.king_index(self.state.turn.opposite()) {
                         Ok(i) => i,
                         Err(_) => {
-                            self.dbg_history();
+                            self.display_history();
                             self.display();
                             panic!();
                         },
@@ -386,9 +372,7 @@ impl Board {
         });
         Ok(moves)
     }
-}
 
-impl Playable for Board {
     fn from_chars(chars: &[char; 64]) -> Result<Self, board::Error> {
         let mut squares: [Option<Piece>; 64] = [None; 64];
         for (i, piece_char) in chars.iter().enumerate() {
@@ -435,79 +419,6 @@ impl Playable for Board {
             history: vec![],
             algorithm: board::Algorithm::Clone,
         })
-    }
-    fn new() -> Self {
-        Board::from_chars(&[
-            'r','n','b','q','k','b','n','r',
-            'p','p','p','p','p','p','p','p',
-            ' ',' ',' ',' ',' ',' ',' ',' ',
-            ' ',' ',' ',' ',' ',' ',' ',' ',
-            ' ',' ',' ',' ',' ',' ',' ',' ',
-            ' ',' ',' ',' ',' ',' ',' ',' ',
-            'P','P','P','P','P','P','P','P',
-            'R','N','B','Q','K','B','N','R',
-        ]).unwrap()
-    }
-
-    fn display(&self) {
-        for (i, &square) in self.squares.iter().enumerate() {
-            print!("{} ", Piece::display_square(square));
-            if i % 8 == 7 {
-                for j in i - 7..=i {
-                    print!(" {}", format!("{j: >2}").black());
-                }
-                println!();
-            }
-        }
-    }
-
-    fn dbg_moves(
-        &self,
-        moves: &[Move],
-        shown_pieces: Vec<PieceKind>,
-        show_castling: bool,
-    ) -> Result<(), board::Error> {
-        BasicMove::dbg_moves(&moves
-            .iter()
-            .filter_map(|m| match m {
-                Move::BasicMove(bm) => Some(*bm),
-                _ => None
-            })
-            .map(|m| {
-                if shown_pieces == &[] { return Ok(Some(m)); }
-                let piece_kind = match self.squares[m.start_index] {
-                    Some(piece) => piece.kind,
-                    None => return Err(board::Error::MoveEmptySquare),
-                };
-                if shown_pieces.contains(&piece_kind) {
-                    return Ok(Some(m));
-                }
-                Ok(None)
-            })
-            .collect::<Result<Vec<Option<_>>, board::Error>>()?
-            .into_iter()
-            .filter_map(|m| m)
-            .collect::<Vec<_>>(),
-            self
-        );
-        if !show_castling { return Ok(()) }
-        CastlingMove::dbg_moves(&moves
-            .iter()
-            .filter_map(|m| match m {
-                Move::CastlingMove(cm) => Some(*cm), _ => None
-            })
-            .collect::<Vec<_>>()
-        );
-        PromotionMove::dbg_moves(&moves
-            .iter()
-            .filter_map(|m| match m{
-                Move::PromotionMove(pm) => Some(*pm),
-                _ => None
-            })
-            .collect::<Vec<_>>(),
-            self
-        );
-        Ok(())
     }
 
     fn from_fen(fen: &str) -> Result<Self, board::Error> {
@@ -557,18 +468,6 @@ impl Playable for Board {
         };
         Ok(board)
     }
-
-    fn to_fen(&self) -> &str {
-        let mut squares = [' '; 64];
-        for (i, &square) in self.squares.iter().enumerate() {
-            squares[i] = Piece::square_to_char(square);
-        }
-        for char in squares.iter() {
-            let _ = char; todo!()
-        }
-        todo!()
-    }
-
 
     fn change_turn(&mut self) {
         self.state.turn = self.state.turn.opposite();
@@ -680,7 +579,7 @@ impl Playable for Board {
             self.state.game_state = board::GameState::Draw;
         }
 
-        if DEBUG_HISTORY {
+        if STORE_HISTORY {
             self.history.push(self.squares);
         }
 
@@ -738,7 +637,7 @@ impl Playable for Board {
         // Color of the player who made the move being undone
         let color = self.state.turn;
 
-        if DEBUG_HISTORY {
+        if STORE_HISTORY {
             self.history.pop();
         }
 
@@ -778,95 +677,19 @@ impl Playable for Board {
         Ok(())
     }
 
-    fn king_index(&self, color: Color) -> Result<usize, board::Error> {
-        match self.squares
-            .iter()
-            .position(|&square| square == Some(Piece {
-                kind: PieceKind::King, color,
-            })) {
-                Some(index) => Ok(index),
-                None => { Err(board::Error::NoKing) },
-            }
-    }
-
-    fn dbg_set_algorithm(&mut self, algorithm: board::Algorithm) {
+    fn set_algorithm(&mut self, algorithm: board::Algorithm) {
         self.algorithm = algorithm;
     }
 
-    fn dbg_play_move(
-        &mut self,
-        start_index: usize,
-        target_index: usize,
-    ) -> Result<(), board::Error> {
-        self.make_move(&BasicMove::from(&[start_index, target_index]).into())?;
-        Ok(())
+    fn set_castling_state(&mut self, rights: &str) {
+        self.state.castling_state = castling::State::from(rights);
     }
 
-    fn dbg_no_castle(&mut self) {
-        self.state.castling_state.revoke(castling::Rights::Both, &Color::White);
-        self.state.castling_state.revoke(castling::Rights::Both, &Color::Black);
+    fn set_state(&mut self, state: board::State) {
+        self.state = state;
     }
 
-    fn dbg_move_count(&mut self) -> Result<usize, board::Error> {
-        Ok(self.gen_legal_moves()?.len())
-    }
-
-    fn dbg_depth_num_positions(&mut self, depth: i32) -> Result<u32, board::Error> {
-        if depth <= 0 { return Ok(1) }
-        let moves = self.gen_legal_moves()?;
-        let mut num_positions: u32 = 0;
-
-        match self.algorithm {
-            board::Algorithm::Clone => {
-                for mov in &moves {
-                    let mut board = self.clone();
-                    board.make_move(mov)?;
-                    num_positions += board.dbg_depth_num_positions(depth - 1)?;
-                }
-            },
-            board::Algorithm::Unmove => {
-                for mov in &moves {
-                    self.make_move(mov)?;
-                    num_positions += self.dbg_depth_num_positions(depth - 1)?;
-                    self.unmake_move()?;
-                }
-            },
-        }
-
-        Ok(num_positions)
-    }
-
-    fn perft(&mut self, depth: i32) -> Result<u32, board::Error> {
-        if depth <= 0 {
-            return Ok(0);
-        }
-        let moves = self.gen_legal_moves()?;
-
-        let mut total_positions: u32 = 0;
-
-        for mov in &moves {
-            let num_moves = match self.algorithm {
-                board::Algorithm::Clone => {
-                    let mut board = self.clone();
-                    board.make_move(mov)?;
-                    board.dbg_depth_num_positions(depth - 1)?
-
-                },
-                board::Algorithm::Unmove => {
-                    self.make_move(mov)?;
-                    let n = self.dbg_depth_num_positions(depth - 1)?;
-                    self.unmake_move()?;
-                    n
-                },
-            };
-            total_positions += num_moves;
-            println!("{mov}: {num_moves}");
-        }
-        println!("Total Positions: {total_positions}");
-        Ok(total_positions)
-    }
-
-    fn dbg_history(&self) {
+    fn display_history(&self) {
         for board in &self.history {
             for (i, &square) in board.iter().enumerate() {
                 print!("{} ", Piece::display_square(square));
@@ -880,25 +703,23 @@ impl Playable for Board {
             println!("{:?}", self.state.turn);
         }
     }
-    fn play_random_game(
+
+    fn play_legal_move(
         &mut self,
-        move_limit: u32,
-    ) -> Result<board::GameState, board::Error> {
-        use rand::{seq::SliceRandom, thread_rng};
-        for _ in 0..move_limit {
-            let moves = self.gen_legal_moves()?;
-
-            let mut rng = thread_rng();
-            let mov = moves.choose(&mut rng);
-            self.play_optional_move(mov)?;
-            if self.state.game_state != board::GameState::Playing { break }
-        }
-        Ok(self.state.game_state)
-    }
-
-    fn dbg_gen_moves(&mut self) -> Result<(), board::Error> {
-        let moves = self.gen_legal_moves()?;
-        self.dbg_moves(&moves, vec![], true)?;
+        mov: Option<&Move>,
+    ) -> Result<(), board::Error> {
+        match mov {
+            Some(mov) => self.make_move(mov)?,
+            None => {
+                if self.attacked(self.king_index(self.state.turn)?)? {
+                    self.state.game_state = board::GameState::Victory(
+                        self.state.turn.opposite(),
+                    );
+                } else {
+                    self.state.game_state = board::GameState::Draw;
+                }
+            }
+        };
         Ok(())
     }
 
@@ -908,5 +729,38 @@ impl Playable for Board {
 
     fn state(&self) -> board::State {
         self.state
+    }
+
+    fn algorithm(&self) -> board::Algorithm {
+        self.algorithm
+    }
+
+    fn _history(&self) -> Vec<[Option<Piece>; 64]> {
+        self.history.clone()
+    }
+
+    fn depth_num_positions(&mut self, depth: i32) -> Result<u32, board::Error> {
+        if depth <= 0 { return Ok(1) }
+        let moves = self.gen_legal_moves()?;
+        let mut num_positions: u32 = 0;
+
+        match self.algorithm() {
+            board::Algorithm::Clone => {
+                for mov in &moves {
+                    let mut board = self.clone();
+                    board.make_move(mov)?;
+                    num_positions += board.depth_num_positions(depth - 1)?;
+                }
+            },
+            board::Algorithm::Unmove => {
+                for mov in &moves {
+                    self.make_move(mov)?;
+                    num_positions += self.depth_num_positions(depth - 1)?;
+                    self.unmake_move()?;
+                }
+            },
+        }
+
+        Ok(num_positions)
     }
 }

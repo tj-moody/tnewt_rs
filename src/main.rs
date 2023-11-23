@@ -41,24 +41,11 @@ fn main() -> Result<(), board::Error> {
     //     ' ',' ',' ',' ','K',' ',' ',' ', // 56 57 58 59 60 61 62 63
     // ])?;
 
-
-    // for i in 0..1000 {
-    //     let mut board = Board::new();
-    //     board.algorithm = Algorithm::Unmove;
-    //     println!("Game {i}: {:?}", board.play_random_game(500)?);
-    // }
-
-    let mut board = board::from_fen::<implementations::mut_pass::Board>(
-        "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
-    )?;
-    board.dbg_set_algorithm(board::Algorithm::Clone);
-    board.dbg_move_count()?;
+    let mut board = board::from_fen::<implementations::retain::Board>("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")?;
     board.display();
-    println!();
-    board.dbg_set_algorithm(board::Algorithm::Unmove);
-    board.dbg_move_count()?;
-    board.display();
-    // board.dbg_gen_moves()?;
+
+    board.set_algorithm(board::Algorithm::Clone);
+    dbg!(board.gen_legal_moves()?);
 
     // for i in 1..15 {
     //     println!("{}", board.dbg_depth_num_positions(i)?);

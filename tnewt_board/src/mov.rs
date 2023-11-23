@@ -88,8 +88,7 @@ impl PromotionMove {
         ]
     }
 
-    pub fn dbg_moves<B>(promotion_moves: &[PromotionMove], board: &B)
-    where B: Playable {
+    pub fn dbg_moves(promotion_moves: &[PromotionMove], squares: &[Option<Piece>; 64]) {
         let mut start_indices: Vec<usize> = promotion_moves
             .iter()
             .map(|pm| pm.pawn_move.start_index)
@@ -102,7 +101,7 @@ impl PromotionMove {
             .collect();
         for start_index in start_indices {
             for i in 0..64 {
-                let piece = Piece::display_square(board.squares()[i]);
+                let piece = Piece::display_square(squares[i]);
                 if i == start_index {
                     print!("{} ", piece);
                 } else if moves_list.contains(&[start_index, i]) {
@@ -134,8 +133,7 @@ impl BasicMove {
     pub fn into(self) -> Move {
         Move::BasicMove(self)
     }
-    pub fn dbg_moves<B>(moves: &[BasicMove], board: &B)
-    where B: Playable {
+    pub fn dbg_moves(moves: &[BasicMove], squares: &[Option<Piece>; 64]) {
         let mut start_indices: Vec<usize> = moves
             .iter()
             .map(|m| m.start_index)
@@ -149,7 +147,7 @@ impl BasicMove {
 
         for start_index in start_indices {
             for i in 0..64 {
-                let piece = Piece::display_square(board.squares()[i]);
+                let piece = Piece::display_square(squares[i]);
                 if i == start_index {
                     print!("{piece} ");
                 } else if moves_list.contains(&[start_index, i]) {
