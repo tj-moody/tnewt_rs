@@ -1,12 +1,16 @@
 #[cfg(test)]
 
 mod tests {
-    use tnewt_board::*;
+    use std::collections::HashSet;
 
-    use board::{Playable, Algorithm};
+    use tnewt_board;
+    use tnewt_board::{from_fen, implementations::Implementation, mov::Move, new, *};
+
+    use board::{Algorithm, Playable};
     use color::*;
     use piece::*;
 
+    #[rustfmt::skip]
     const TEST_FENS: [(&str, [u32; 3]); 6] = [
         ("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",                 [20, 400 , 8902 ]),
         ("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",     [48, 2039, 97862]),
@@ -16,19 +20,21 @@ mod tests {
         ("r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10", [46, 2079, 89890])
     ];
 
-    fn new() -> impl Playable {
-        board::new::<implementations::pre_filter::Board>()
+    macro_rules! new {
+        () => {
+            tnewt_board::new!(hash_set)
+        };
     }
-
-    fn from_fen(fen: &str) -> Result<impl Playable, board::Error> {
-        board::from_fen::<implementations::pre_filter::Board>(fen)
+    macro_rules! from_fen {
+        ($fen:expr) => {
+            tnewt_board::from_fen!(hash_set, $fen)
+        };
     }
-
 
     #[test]
     fn default_fen_functions() -> Result<(), board::Error> {
-        let board = new();
-        let board2 = from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")?;
+        let board = new!();
+        let board2 = from_fen!("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")?;
         assert_eq!(board.squares(), board2.squares());
         assert_eq!(board.state(), board2.state());
         Ok(())
@@ -38,19 +44,19 @@ mod tests {
     fn is_same_color() {
         let white_square1 = Some(Piece {
             kind: PieceKind::Queen,
-            color: Color::White
+            color: Color::White,
         });
         let white_square2 = Some(Piece {
             kind: PieceKind::Pawn,
-            color: Color::White
+            color: Color::White,
         });
         let black_square1 = Some(Piece {
             kind: PieceKind::King,
-            color: Color::Black
+            color: Color::Black,
         });
         let black_square2 = Some(Piece {
             kind: PieceKind::Rook,
-            color: Color::Black
+            color: Color::Black,
         });
         let empty_square = None;
         assert!(!Piece::is_same_color(white_square1, black_square1));
@@ -66,7 +72,7 @@ mod tests {
     #[test]
     fn clone_depth_3_num_positions() -> Result<(), board::Error> {
         for (i, (fen, num_positions)) in TEST_FENS.into_iter().enumerate() {
-            let mut board = from_fen(fen)?;
+            let mut board = from_fen!(fen)?;
             board.set_algorithm(Algorithm::Clone);
             println!("Test Position {i}");
             board.gen_legal_moves()?;
@@ -81,7 +87,7 @@ mod tests {
     #[test]
     fn unmove_depth_3_num_positions() -> Result<(), board::Error> {
         for (i, (fen, num_positions)) in TEST_FENS.into_iter().enumerate() {
-            let mut board = from_fen(fen)?;
+            let mut board = from_fen!(fen)?;
             board.set_algorithm(Algorithm::Unmove);
             println!("Test Position {i}");
             board.display();
@@ -95,7 +101,7 @@ mod tests {
 
     #[test]
     fn clone_play_random_games() -> Result<(), board::Error> {
-        let mut board = new();
+        let mut board = new!();
         board.set_algorithm(Algorithm::Clone);
         const DEPTH: u32 = 10_000;
         for _ in 0..10_000 {
@@ -106,7 +112,7 @@ mod tests {
     }
     #[test]
     fn unmove_play_random_games() -> Result<(), board::Error> {
-        let mut board = new();
+        let mut board = new!();
         board.set_algorithm(Algorithm::Unmove);
         const DEPTH: u32 = 10_000;
         for _ in 0..10_000 {

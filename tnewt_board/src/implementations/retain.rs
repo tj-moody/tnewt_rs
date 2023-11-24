@@ -21,6 +21,7 @@ pub struct Board {
     pub state_history: Vec<board::State>,
     pub history: Vec<[Option<Piece>; 64]>,
     pub algorithm: board::Algorithm,
+    pub implementation: String,
 }
 
 const STORE_HISTORY: bool = false;
@@ -321,7 +322,7 @@ impl Board {
     }
 }
 
-impl Playable for Board {
+impl Playable<Vec<Move>> for Board {
     /// This function does not actually mutate self, as it calls `make_move`
     /// and `unmake_move` sequentially, without mutating anywhere else.
     fn gen_legal_moves(&mut self) -> Result<Vec<Move>, board::Error> {
@@ -437,6 +438,7 @@ impl Playable for Board {
             state_history: vec![],
             history: vec![],
             algorithm: board::Algorithm::Clone,
+            implementation: "Retain".into(),
         })
     }
 

@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use color_eyre::eyre::Result;
 use colored::Colorize;
 
@@ -29,7 +30,7 @@ const STORE_HISTORY: bool = false;
 impl Board {
     fn slider_gen_moves(
         &mut self,
-        moves: &mut Vec<Move>,
+        moves: &mut HashSet<Move>,
         start_index: usize,
         piece: Piece,
         pseudo_legal: bool,
@@ -72,7 +73,7 @@ impl Board {
                 if !pseudo_legal {
                     self.push_if_legal(mov, moves);
                 } else {
-                    moves.push(mov);
+                    moves.insert(mov);
                 }
 
                 if target_square.is_some() {
@@ -84,7 +85,7 @@ impl Board {
         Ok(())
     }
 
-    fn knight_gen_moves(&mut self, moves: &mut Vec<Move>, start_index: usize, pseudo_legal: bool) {
+    fn knight_gen_moves(&mut self, moves: &mut HashSet<Move>, start_index: usize, pseudo_legal: bool) {
         for offset in &KNIGHT_XY_OFFSETS {
             let (start_x, start_y) = (start_index % 8, start_index / 8 % 8);
             let (target_x, target_y) = (start_x as i32 + offset[0], start_y as i32 + offset[1]);
@@ -103,7 +104,7 @@ impl Board {
                     if !pseudo_legal {
                         self.push_if_legal(mov, moves);
                     } else {
-                        moves.push(mov);
+                        moves.insert(mov);
                     }
                 }
             }
@@ -112,7 +113,7 @@ impl Board {
 
     fn pawn_gen_moves(
         &mut self,
-        moves: &mut Vec<Move>,
+        moves: &mut HashSet<Move>,
         start_index: usize,
         pseudo_legal: bool,
     ) -> Result<(), board::Error> {
@@ -156,14 +157,14 @@ impl Board {
                         if !pseudo_legal {
                             self.push_if_legal(mov, moves);
                         } else {
-                            moves.push(mov);
+                            moves.insert(mov);
                         }
                     }
                 } else {
                         if !pseudo_legal {
                             self.push_if_legal(mov.into(), moves);
                         } else {
-                            moves.push(mov.into());
+                            moves.insert(mov.into());
                         }
                 }
                 if rank != invalid_ranks[1] && rank == starting_rank {
@@ -178,7 +179,7 @@ impl Board {
                         if !pseudo_legal {
                             self.push_if_legal(mov, moves);
                         } else {
-                            moves.push(mov);
+                            moves.insert(mov);
                         }
                     }
                 }
@@ -200,14 +201,14 @@ impl Board {
                         if !pseudo_legal {
                             self.push_if_legal(mov, moves);
                         } else {
-                            moves.push(mov);
+                            moves.insert(mov);
                         }
                     }
                 } else {
                     if !pseudo_legal {
                         self.push_if_legal(mov.into(), moves);
                     } else {
-                        moves.push(mov.into());
+                        moves.insert(mov.into());
                     }
                 }
             }
@@ -228,14 +229,14 @@ impl Board {
                         if !pseudo_legal {
                             self.push_if_legal(mov, moves);
                         } else {
-                            moves.push(mov);
+                            moves.insert(mov);
                         }
                     }
                 } else {
                     if !pseudo_legal {
                         self.push_if_legal(basic_move.into(), moves);
                     } else {
-                        moves.push(basic_move.into());
+                        moves.insert(basic_move.into());
                     }
                 }
             }
@@ -243,7 +244,7 @@ impl Board {
         Ok(())
     }
 
-    fn gen_castling_moves(&mut self, moves: &mut Vec<Move>, pseudo_legal: bool) {
+    fn gen_castling_moves(&mut self, moves: &mut HashSet<Move>, pseudo_legal: bool) {
         self.state
             .castling_state
             .get_moves(&self.state.turn)
@@ -289,13 +290,13 @@ impl Board {
                 if !pseudo_legal {
                     self.push_if_legal(mov, moves);
                 } else {
-                    moves.push(mov);
+                    moves.insert(mov);
                 }
             });
     }
 
-    fn gen_pseudo_legal_moves(&mut self) -> Result<Vec<Move>, board::Error> {
-        let mut moves: Vec<Move> = Vec::with_capacity(50);
+    fn gen_pseudo_legal_moves(&mut self) -> Result<HashSet<Move>, board::Error> {
+        let mut moves: HashSet<Move> = HashSet::with_capacity(50);
         for start_index in 0..64 {
             let square = self.squares[start_index];
             if let Some(piece) = square {
@@ -378,7 +379,7 @@ impl Board {
         } else {
             king_indices = vec![];
         }
-        let opponent_responses: Vec<Move>;
+        let opponent_responses: HashSet<Move>;
         let king_index: usize;
 
         match self.algorithm {
@@ -427,20 +428,20 @@ impl Board {
         true
     }
 
-    fn push_if_legal(&mut self, mov: Move, moves: &mut Vec<Move>) -> bool {
+    fn push_if_legal(&mut self, mov: Move, moves: &mut HashSet<Move>) -> bool {
         if !self.pseudo_legal_is_legal(&mov) {
             return false;
         }
-        moves.push(mov);
+        moves.insert(mov);
         true
     }
 }
 
-impl Playable<Vec<Move>> for Board {
+impl Playable<HashSet<Move>> for Board {
     /// This function does not actually mutate self, as it calls `make_move`
     /// and `unmake_move` sequentially, without mutating anywhere else.
-    fn gen_legal_moves(&mut self) -> Result<Vec<Move>, board::Error> {
-        let mut moves: Vec<Move> = Vec::with_capacity(50);
+    fn gen_legal_moves(&mut self) -> Result<HashSet<Move>, board::Error> {
+        let mut moves: HashSet<Move> = HashSet::with_capacity(50);
         for start_index in 0..64 {
             let square = self.squares[start_index];
             if let Some(piece) = square {
@@ -508,7 +509,7 @@ impl Playable<Vec<Move>> for Board {
             state_history: vec![],
             history: vec![],
             algorithm: board::Algorithm::Clone,
-            implementation: "PreFilter".into(),
+            implementation: "HashSet".into(),
         })
     }
 

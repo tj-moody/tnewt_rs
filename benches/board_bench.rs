@@ -1,20 +1,22 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 
 use board::{Algorithm, Playable};
-use tnewt_board::*;
+use tnewt_board::{mov::Move, *};
 
-fn old_board() -> impl Playable {
-    board::new::<implementations::retain::Board>()
+macro_rules! old_implementation {
+    () => { new!(retain) };
+    (type) => { Vec<Move> };
+}
+macro_rules! new_implementation {
+    () => { new!(hash_set) };
+    (type) => { HashSet<Move> };
 }
 fn old_name() -> String {
     "Retain".into()
 }
 
-fn new_board() -> impl Playable {
-    board::new::<implementations::pre_filter::Board>()
-}
 fn new_name() -> String {
-    "PreFilter".into()
+    "HashSet".into()
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
@@ -31,68 +33,76 @@ fn criterion_benchmark(c: &mut Criterion) {
         ($group:expr, $func:expr, $algorithm:expr, $board:expr, $name:expr) => {
             $group.bench_function($name(), |b| {
                 b.iter(|| {
-                    let mut board = $board();
-                    board.set_algorithm(Algorithm::Clone);
-                    ($func)(&mut board)
+                    $board.set_algorithm(Algorithm::Clone);
+                    ($func)(&mut $board)
                 })
             });
         };
-    }// }}}
+    } // }}}
     #[rustfmt::skip]
-    macro_rules! create_benches { // {{{
+    macro_rules! add_benches { // {{{
         ( $( $func:expr),* ) => {
             $(
-                if BENCH_ALGORITHM == BenchAlgorithms::Both
-                || BENCH_ALGORITHM == BenchAlgorithms::Clone {
-                    let mut clone_group = c.benchmark_group(
-                        stringify!($func).to_string() + " (Clone)"
-                    );
-                    add_bench_to_group!(
-                        clone_group, $func, Algorithm::Clone,
-                        old_board, old_name
-                    );
-                    add_bench_to_group!(clone_group,
-                        $func, Algorithm::Clone,
-                        new_board, new_name
-                    );
-                    clone_group.finish();
-                }
+            if BENCH_ALGORITHM == BenchAlgorithms::Both
+            || BENCH_ALGORITHM == BenchAlgorithms::Clone {
+            let mut clone_group = c.benchmark_group(
+            stringify!($func).to_string() + " (Clone)"
+            );
+            add_bench_to_group!(clone_group,
+            $func, Algorithm::Clone,
+            old_implementation!(), old_name
+            );
+            add_bench_to_group!(clone_group,
+            $func, Algorithm::Clone,
+            new_implementation!(), new_name
+            );
+            clone_group.finish();
+            }
 
-                if BENCH_ALGORITHM == BenchAlgorithms::Both
-                || BENCH_ALGORITHM == BenchAlgorithms::Unmove {
-                    let mut clone_group = c.benchmark_group(
-                        stringify!($func).to_string() + " (Unmove)"
-                    );
-                    add_bench_to_group!(clone_group,
-                        $func, Algorithm::Clone,
-                        old_board, old_name
-                    );
-                    add_bench_to_group!(clone_group,
-                        $func, Algorithm::Clone,
-                        new_board, new_name
-                    );
-                    clone_group.finish();
-                }
+            if BENCH_ALGORITHM == BenchAlgorithms::Both
+            || BENCH_ALGORITHM == BenchAlgorithms::Unmove {
+            let mut clone_group = c.benchmark_group(
+            stringify!($func).to_string() + " (Unmove)"
+            );
+            add_bench_to_group!(clone_group,
+            $func, Algorithm::Clone,
+            old_implementation!(), old_name
+            );
+            add_bench_to_group!(clone_group,
+            $func, Algorithm::Clone,
+            new_implementation!(), new_name
+            );
+            clone_group.finish();
+            }
             )*
-        };
+        }
     } // }}}
 
-    fn new_board_moves(board: &mut impl Playable) {
-        board.num_legal_moves().unwrap();
+    macro_rules! create_bench_function {
+        ($name:ident, |$board:ident| $body:expr) => {
+            fn $name<T: Clone + IntoIterator<Item = Move>>($board: &mut impl Playable<T>) {
+                $body
+            }
+        };
     }
 
-    fn random_game(board: &mut impl Playable) {
+    create_bench_function!(new_board_moves, |board| {
+        board.num_legal_moves().unwrap();
+    });
+
+    create_bench_function!(random_game, |board| {
         const MOVE_LIMIT: u32 = 1000;
         board.play_random_game(MOVE_LIMIT).unwrap();
-    }
+    });
 
-    fn depth_pos_count(board: &mut impl Playable) {
+    create_bench_function!(depth_pos_count, |board| {
         for i in 0..5 {
             board.depth_num_positions(i).unwrap();
         }
-    }
+    });
 
-    create_benches!(random_game, new_board_moves, depth_pos_count);
+    // add_benches!(random_game, new_board_moves);
+    add_benches!(depth_pos_count);
 }
 
 criterion_group!(benches, criterion_benchmark);

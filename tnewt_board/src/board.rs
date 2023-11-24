@@ -55,10 +55,10 @@ pub enum Algorithm {
 //
 //      "This function will return an error if move generation fails"
 
-pub trait Playable: Clone + Debug {
+pub trait Playable<T: Clone + IntoIterator<Item = Move>>: Clone + Debug {
     #[rustfmt::skip]
     fn new() -> Self
-    where Self: Sized {
+where Self: Sized {
         Self::from_chars(&[
             'r','n','b','q','k','b','n','r',
             'p','p','p','p','p','p','p','p',
@@ -94,7 +94,7 @@ pub trait Playable: Clone + Debug {
     /// ])?;
     /// ```
     fn from_chars(chars: &[char; 64]) -> Result<Self, Error>
-    where
+where
         Self: Sized;
 
     /// Returns a playable board.
@@ -111,7 +111,7 @@ pub trait Playable: Clone + Debug {
     ///
     /// See: https://en.wikipedia.org/wiki/Forsyth-Edwards_Notation
     fn from_fen(fen: &str) -> Result<Self, Error>
-    where
+where
         Self: Sized;
 
     /// Returns the current position of the board.
@@ -144,7 +144,7 @@ pub trait Playable: Clone + Debug {
     /// This function will return an error if move generation fails
     /// (should never happen for bug-free code, eventually will be
     /// able to be unwrapped directly)
-    fn gen_legal_moves(&mut self) -> Result<Vec<Move>, Error>;
+    fn gen_legal_moves(&mut self) -> Result<T, Error>;
 
     /// Prints the current position in a human-readable format.
     fn display(&self) {
@@ -173,15 +173,16 @@ pub trait Playable: Clone + Debug {
     /// from an empty square.
     fn display_moves(
         &self,
-        moves: &[Move],
+        moves: &T,
         shown_pieces: Vec<PieceKind>,
         show_castling: bool,
     ) -> Result<(), Error> {
         BasicMove::dbg_moves(
-            &moves
-                .iter()
+            &(*moves
+                .clone()
+                .into_iter()
                 .filter_map(|m| match m {
-                    Move::BasicMove(bm) => Some(*bm),
+                    Move::BasicMove(bm) => Some(bm),
                     _ => None,
                 })
                 .map(|m| {
@@ -200,29 +201,31 @@ pub trait Playable: Clone + Debug {
                 .collect::<Result<Vec<Option<_>>, Error>>()?
                 .into_iter()
                 .filter_map(|m| m)
-                .collect::<Vec<_>>(),
+                .collect::<Vec<_>>()),
             &self.squares(),
         );
         if !show_castling {
             return Ok(());
         }
         CastlingMove::dbg_moves(
-            &moves
-                .iter()
+            &(*moves
+                .clone()
+                .into_iter()
                 .filter_map(|m| match m {
-                    Move::CastlingMove(cm) => Some(*cm),
+                    Move::CastlingMove(cm) => Some(cm),
                     _ => None,
                 })
-                .collect::<Vec<_>>(),
+                .collect::<Vec<_>>()),
         );
         PromotionMove::dbg_moves(
-            &moves
-                .iter()
+            &(*moves
+                .clone()
+                .into_iter()
                 .filter_map(|m| match m {
-                    Move::PromotionMove(pm) => Some(*pm),
+                    Move::PromotionMove(pm) => Some(pm),
                     _ => None,
                 })
-                .collect::<Vec<_>>(),
+                .collect::<Vec<_>>()),
             &self.squares(),
         );
         Ok(())
@@ -255,14 +258,14 @@ pub trait Playable: Clone + Debug {
     fn king_index(&self, color: Color) -> Result<usize, Error> {
         match self.squares().iter().position(|&square| {
             square
-                == Some(Piece {
-                    kind: PieceKind::King,
-                    color,
-                })
+            == Some(Piece {
+                kind: PieceKind::King,
+                color,
+            })
         }) {
-            Some(index) => Ok(index),
-            None => Err(Error::NoKing),
-        }
+                Some(index) => Ok(index),
+                None => Err(Error::NoKing),
+            }
     }
 
     /// Generates the board's current legal moves and displays them in a
@@ -303,7 +306,11 @@ pub trait Playable: Clone + Debug {
     ///
     /// This function will return an error if move generation fails.
     fn num_legal_moves(&mut self) -> Result<usize, Error> {
-        Ok(self.gen_legal_moves()?.len())
+        Ok(self
+            .gen_legal_moves()?
+            .into_iter()
+            .collect::<Vec<_>>()
+            .len())
     }
 
     /// Get the number of possible positions after a certain `depth`.
@@ -359,15 +366,15 @@ pub trait Playable: Clone + Debug {
 
         let mut total_positions: u32 = 0;
 
-        for mov in &moves {
+        for mov in moves {
             let num_moves = match self.algorithm() {
                 Algorithm::Clone => {
                     let mut board = self.clone();
-                    board.make_move(mov)?;
+                    board.make_move(&mov)?;
                     board.depth_num_positions(depth - 1)?
                 }
                 Algorithm::Unmove => {
-                    self.make_move(mov)?;
+                    self.make_move(&mov)?;
                     let n = self.depth_num_positions(depth - 1)?;
                     self.unmake_move()?;
                     n
@@ -420,13 +427,14 @@ pub trait Playable: Clone + Debug {
     /// This function will return an error if move generation fails
     // fn play_random_game(&mut self, move_limit: u32) -> Result<GameState, Error>;
     fn play_random_game(&mut self, move_limit: u32) -> Result<GameState, Error> {
-        use rand::{seq::SliceRandom, thread_rng};
+        // use rand::{seq::SliceRandom, thread_rng};
         for _ in 0..move_limit {
             let moves = self.gen_legal_moves()?;
 
-            let mut rng = thread_rng();
-            let mov = moves.choose(&mut rng);
-            self.play_legal_move(mov)?;
+            // let mut rng = thread_rng();
+            // let mov = moves.choose(&mut rng);
+            let mov = moves.into_iter().next();
+            self.play_legal_move(mov.as_ref())?;
             if self.state().game_state != GameState::Playing {
                 break;
             }
@@ -448,17 +456,31 @@ pub trait Playable: Clone + Debug {
     fn set_algorithm(&mut self, algorithm: Algorithm);
 }
 
-#[must_use]
-pub fn from_fen<B: Playable>(fen: &str) -> Result<B, Error> {
-    B::from_fen(fen)
+#[macro_export]
+macro_rules! from_fen {
+    ($implementation:ident, $fen:expr) => {
+        implementations::$implementation::Board::from_fen($fen)
+    };
 }
 
-#[must_use]
-pub fn new<B: Playable>() -> B {
-    B::new()
+#[macro_export]
+macro_rules! board_type {
+    ($implementation:ident) => {
+        implementations::$implementation::Board
+    };
 }
 
-#[must_use]
-pub fn from_chars<B: Playable>(chars: &[char; 64]) -> Result<impl Playable, Error> {
-    B::from_chars(chars)
+
+#[macro_export]
+macro_rules! new {
+    ($implementation:ident) => {
+        implementations::$implementation::Board::new()
+    };
+}
+
+#[macro_export]
+macro_rules! from_chars {
+    ($implementation:ident, $chars:expr) => {
+        implementations::$implementation::Board::from_chars($chars)
+    };
 }
