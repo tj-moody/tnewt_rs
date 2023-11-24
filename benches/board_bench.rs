@@ -1,3 +1,4 @@
+#![allow(dead_code, unused_macros)]
 use criterion::{criterion_group, criterion_main, Criterion};
 
 use board::{Algorithm, Playable};
@@ -26,12 +27,12 @@ fn criterion_benchmark(c: &mut Criterion) {
         Unmove,
         Both,
     }
-    const BENCH_ALGORITHM: BenchAlgorithms = BenchAlgorithms::Clone;
+    const BENCH_ALGORITHM: BenchAlgorithms = BenchAlgorithms::Both;
 
     #[rustfmt::skip]
     macro_rules! add_bench_to_group {// {{{
         ($group:expr, $func:expr, $algorithm:expr, $board:expr, $name:expr) => {
-            $group.bench_function($name(), |b| {
+            $group.bench_function($name, |b| {
                 b.iter(|| {
                     $board.set_algorithm(Algorithm::Clone);
                     ($func)(&mut $board)
@@ -41,41 +42,63 @@ fn criterion_benchmark(c: &mut Criterion) {
     } // }}}
     #[rustfmt::skip]
     macro_rules! add_benches { // {{{
-        ( $( $func:expr),* ) => {
+        (old, $( $func:expr),* ) => {
             $(
-            if BENCH_ALGORITHM == BenchAlgorithms::Both
-            || BENCH_ALGORITHM == BenchAlgorithms::Clone {
-            let mut clone_group = c.benchmark_group(
-            stringify!($func).to_string() + " (Clone)"
-            );
-            add_bench_to_group!(clone_group,
-            $func, Algorithm::Clone,
-            old_implementation!(), old_name
-            );
-            add_bench_to_group!(clone_group,
-            $func, Algorithm::Clone,
-            new_implementation!(), new_name
-            );
-            clone_group.finish();
-            }
-
-            if BENCH_ALGORITHM == BenchAlgorithms::Both
-            || BENCH_ALGORITHM == BenchAlgorithms::Unmove {
-            let mut clone_group = c.benchmark_group(
-            stringify!($func).to_string() + " (Unmove)"
-            );
-            add_bench_to_group!(clone_group,
-            $func, Algorithm::Clone,
-            old_implementation!(), old_name
-            );
-            add_bench_to_group!(clone_group,
-            $func, Algorithm::Clone,
-            new_implementation!(), new_name
-            );
-            clone_group.finish();
-            }
+                let mut clone_group = c.benchmark_group(
+                    stringify!($func).to_string()
+                );
+                if BENCH_ALGORITHM == BenchAlgorithms::Both
+                || BENCH_ALGORITHM == BenchAlgorithms::Clone {
+                    add_bench_to_group!(clone_group,
+                        $func, Algorithm::Clone,
+                        old_implementation!(), old_name() + " (Clone)"
+                    );
+                }
+                if BENCH_ALGORITHM == BenchAlgorithms::Both
+                || BENCH_ALGORITHM == BenchAlgorithms::Unmove {
+                    add_bench_to_group!(clone_group,
+                        $func, Algorithm::Unmove,
+                        old_implementation!(), old_name() + " (Unmove)"
+                    );
+                }
+                clone_group.finish();
             )*
-        }
+        };
+        ($( $func:expr),* ) => {
+            $(
+                if BENCH_ALGORITHM == BenchAlgorithms::Both
+                || BENCH_ALGORITHM == BenchAlgorithms::Clone {
+                    let mut clone_group = c.benchmark_group(
+                        stringify!($func).to_string() + " (Clone)"
+                    );
+                    add_bench_to_group!(clone_group,
+                        $func, Algorithm::Clone,
+                        old_implementation!(), old_name()
+                    );
+                    add_bench_to_group!(clone_group,
+                        $func, Algorithm::Clone,
+                        new_implementation!(), new_name()
+                    );
+                    clone_group.finish();
+                }
+
+                if BENCH_ALGORITHM == BenchAlgorithms::Both
+                || BENCH_ALGORITHM == BenchAlgorithms::Unmove {
+                    let mut clone_group = c.benchmark_group(
+                        stringify!($func).to_string() + " (Unmove)"
+                    );
+                    add_bench_to_group!(clone_group,
+                        $func, Algorithm::Clone,
+                        old_implementation!(), old_name()
+                    );
+                    add_bench_to_group!(clone_group,
+                        $func, Algorithm::Clone,
+                        new_implementation!(), new_name()
+                    );
+                    clone_group.finish();
+                }
+            )*
+        };
     } // }}}
 
     macro_rules! create_bench_function {
@@ -103,7 +126,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     });
 
     // add_benches!(random_game, new_board_moves);
-    add_benches!(depth_pos_count);
+    add_benches!(old, depth_pos_count);
 }
 
 criterion_group!(benches, criterion_benchmark);
