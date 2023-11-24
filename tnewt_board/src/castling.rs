@@ -125,7 +125,6 @@ pub struct CastlingSquares<'a> {
     pub rook_target_index: usize,
 }
 
-// TODO: Convert to Result
 pub fn get_squares(mov: &Move) -> Result<CastlingSquares, board::Error> {
     if mov.indices() == (60, 62) {
         Ok(CastlingSquares {

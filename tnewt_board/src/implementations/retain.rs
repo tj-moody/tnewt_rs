@@ -130,7 +130,7 @@ impl Board {
                         moves.push(promotion_move);
                     }
                 } else {
-                    moves.push(mov.into());
+                    moves.push(mov);
                 }
                 if rank != invalid_ranks[1] && rank == starting_rank {
                     let target_index: usize = (start_index as i32 + offsets[1]) as usize;
@@ -153,7 +153,7 @@ impl Board {
                         moves.push(promotion_move);
                     }
                 } else {
-                    moves.push(mov.into());
+                    moves.push(mov);
                 }
             }
         }
@@ -169,7 +169,7 @@ impl Board {
                         moves.push(promotion_move);
                     }
                 } else {
-                    moves.push(mov.into());
+                    moves.push(mov);
                 }
             }
         }
@@ -282,30 +282,19 @@ impl Playable<Vec<Move>> for Board {
     fn gen_legal_moves(&mut self) -> Result<Vec<Move>, board::Error> {
         let mut moves = self.gen_pseudo_legal_moves()?;
         moves.retain(|mov| {
-            let piece = self.squares[mov.start_index].expect("Attempt to move empty square");
-
             let mut check_indices: Vec<usize>;
-            if piece.kind == PieceKind::King {
-                // TODO: Convert into method of `Move`
-                let mut is_castling = false;
-                let offset = mov.target_index as i32 - mov.start_index as i32;
-                if offset == 2 || offset == -2 {
-                    is_castling = true;
-                }
-                if is_castling {
-                    check_indices = castling::get_squares(&mov).unwrap().check_indices.to_vec();
-                    if self
-                        .attacked(self.king_index(self.state.turn).unwrap())
-                        .unwrap()
-                    {
-                        return false;
-                    }
-                } else {
-                    check_indices = vec![];
+            if mov.is_castling(&self.squares).unwrap() {
+                check_indices = castling::get_squares(&mov).unwrap().check_indices.to_vec();
+                if self
+                    .attacked(self.king_index(self.state.turn).unwrap())
+                    .unwrap()
+                {
+                    return false;
                 }
             } else {
                 check_indices = vec![];
             }
+
             let opponent_responses: Vec<Move>;
             let king_index: usize;
 
@@ -500,11 +489,7 @@ impl Playable<Vec<Move>> for Board {
         match captured_square {
             Some(piece) => {
                 match piece.kind {
-                    PieceKind::King => {
-                        // println!("{:?} moved into check", color.opposite());
-                        // NOTE: Could be an error in some cases, but necessary
-                        // to allow to check if currently in check
-                    }
+                    PieceKind::King => {}
                     PieceKind::Rook => {
                         match m.target_index {
                             0 | 56 => self
@@ -535,10 +520,7 @@ impl Playable<Vec<Move>> for Board {
                 self.state
                     .castling_state
                     .revoke(castling::Rights::Both, &self.state.turn);
-                let offset = m.target_index as i32 - m.start_index as i32;
-                if offset == 2 || offset == -2 {
-                    is_castling = true;
-                }
+                is_castling = m.is_castling(&self.squares)?;
             }
             PieceKind::Rook => match m.start_index {
                 0 | 56 => self
@@ -640,22 +622,9 @@ impl Playable<Vec<Move>> for Board {
             self.squares[last_move.start_index] = last_moved_square;
         }
 
-        let is_castling = (|| {
-            if let Some(piece) = last_moved_square {
-                if piece.kind != PieceKind::King {
-                    return Ok(false);
-                }
-                let offset = last_move.target_index as i32 - last_move.start_index as i32;
-                if offset != 2 && offset != -2 {
-                    return Ok(false);
-                }
-                Ok(true)
-            } else {
-                return Err(board::Error::MoveEmptySquare);
-            }
-        })()?;
-
-        if is_castling {
+        // Can use `is_castling` method because moving piece (king) has
+        // already been reset
+        if last_move.is_castling(&self.squares)? {
             let castling_squares = match castling::get_squares(&last_move) {
                 Ok(v) => v,
                 Err(e) => {
