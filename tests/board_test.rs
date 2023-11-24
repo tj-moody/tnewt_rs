@@ -1,10 +1,7 @@
 #[cfg(test)]
 
 mod tests {
-    use std::collections::HashSet;
-
-    use tnewt_board;
-    use tnewt_board::{from_fen, implementations::Implementation, mov::Move, new, *};
+    use tnewt_board::*;
 
     use board::{Algorithm, Playable};
     use color::*;
@@ -22,12 +19,12 @@ mod tests {
 
     macro_rules! new {
         () => {
-            tnewt_board::new!(hash_set)
+            tnewt_board::new!(retain)
         };
     }
     macro_rules! from_fen {
         ($fen:expr) => {
-            tnewt_board::from_fen!(hash_set, $fen)
+            tnewt_board::from_fen!(retain, $fen)
         };
     }
 

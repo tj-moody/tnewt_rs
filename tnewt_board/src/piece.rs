@@ -25,7 +25,6 @@ impl PieceKind {
         }
     }
 
-    #[must_use]
     pub fn from(char: char) -> Result<Self, board::Error> {
         match char {
             'k' => Ok(PieceKind::King),
@@ -49,7 +48,7 @@ pub type Square = Option<Piece>;
 
 impl Piece {
     #[must_use]
-    pub fn square_to_char(square: Square) -> char {
+    pub fn square_to_char(square: &Square) -> char {
         match square {
             Some(piece) => match piece.color {
                 Color::White => piece.kind.to_char().to_ascii_uppercase(),
@@ -59,7 +58,7 @@ impl Piece {
         }
     }
     #[must_use]
-    pub fn display_square(square: Square) -> ColoredString {
+    pub fn display_square(square: &Square) -> ColoredString {
         let string = Piece::square_to_char(square).to_string();
         match square {
             Some(piece) => match piece.kind {

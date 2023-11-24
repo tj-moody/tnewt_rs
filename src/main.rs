@@ -2,8 +2,11 @@
 use color_eyre::eyre::Result;
 
 use tnewt_board::board;
+use tnewt_board::board::Algorithm;
 use tnewt_board::implementations;
 use board::Playable;
+
+
 
 #[allow(dead_code)]
 static STARTING_POSITION: &[char; 64] = &[
@@ -41,9 +44,11 @@ fn main() -> Result<(), board::Error> {
     //     ' ',' ',' ',' ','K',' ',' ',' ', // 56 57 58 59 60 61 62 63
     // ])?;
 
-    let mut board = tnewt_board::from_fen!(retain, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")?;
-    board.display();
-    println!("{}", board.depth_num_positions(6)?);
+    let mut board = tnewt_board::from_fen!(retain, board::STARTING_FEN)?;
+
+    // board.display();
+    board.depth_num_positions(4)?;
+    // println!("{:?}", board.depth_num_positions(5)?);
 
     Ok(())
 }

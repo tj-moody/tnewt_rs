@@ -1,4 +1,5 @@
-use crate::mov::{CastlingMove, Move};
+use crate::board;
+use crate::mov::Move;
 use crate::color::Color;
 
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
@@ -29,51 +30,42 @@ impl Rights {
         }
     }
     pub fn gen_moves(&self, color: &Color) -> Vec<Move> {
-        // Magic values: king, rook
-        let kingside = match color {
-            Color::White => Move::CastlingMove(CastlingMove::from(
-                &[60, 62],
-                &[63, 61],
-            )),
-            Color::Black => Move::CastlingMove(CastlingMove::from(
-                &[4, 6],
-                &[7, 5],
-            )),
-            // can assume rook and king square have their respective
-            // pieces as validated by castling rights, therefore do
-            // not include 4, 7 in squares to check for emptiness
-        };
-        let queenside = match color {
-            Color::White => Move::CastlingMove(CastlingMove::from(&[60,58], &[56,59])),
-            Color::Black => Move::CastlingMove(CastlingMove::from(&[4, 2 ], &[0, 3 ])),
-        };
+        use Rights as R;
+        if *self == R::Neither { return vec![]; }
 
-        match self {
-            Rights::Neither   => vec![],
-            Rights::Kingside  => vec![kingside],
-            Rights::Queenside => vec![queenside],
-            Rights::Both      => vec![kingside, queenside],
-        }
+        let kingside = match color {
+            Color::White => Move::new(60, 62),
+            Color::Black => Move::new(4, 6),
+        };
+        if *self == R::Kingside { return vec![kingside]; }
+
+        let queenside = match color {
+            Color::White => Move::new(60,58),
+            Color::Black => Move::new(4, 2 ),
+        };
+        if *self == R::Queenside { return vec![queenside] }
+
+        vec![kingside, queenside]
     }
+
     pub fn revoke(&mut self, right: Rights) {
+        use Rights as R;
         match right {
-            Rights::Neither => return,
-            Rights::Both => { *self = Rights::Neither; return },
+            R::Neither => return,
+            R::Both => { *self = R::Neither; return },
             _ => (),
         }
         match self {
-            Rights::Neither => (),
-            Rights::Kingside => match right {
-                Rights::Kingside =>  *self = Rights::Neither ,
-                _ => (),
+            R::Neither => (),
+            R::Kingside => if right == R::Kingside {
+                *self = R::Neither;
             },
-            Rights::Queenside => match right {
-                Rights::Queenside => *self = Rights::Neither,
-                _ => (),
+            R::Queenside => if right == R::Queenside {
+                *self = R::Neither;
             },
-            Rights::Both => match right {
-                Rights::Kingside => *self = Rights::Queenside,
-                Rights::Queenside => *self = Rights::Kingside,
+            R::Both => match right {
+                R::Kingside => *self = R::Queenside,
+                R::Queenside => *self = R::Kingside,
                 _ => (),
             },
         }
@@ -122,5 +114,52 @@ impl State {
             Color::White => self.white.revoke(right),
             Color::Black => self.black.revoke(right),
         }
+    }
+}
+
+pub struct CastlingSquares<'a> {
+    pub empty_indices: &'a [usize],
+    pub check_indices: &'a [usize],
+    pub king_start_index: usize,
+    pub rook_start_index: usize,
+    pub rook_target_index: usize,
+}
+
+// TODO: Convert to Result
+pub fn get_squares(mov: &Move) -> Result<CastlingSquares, board::Error> {
+    if mov.indices() == (60, 62) {
+        Ok(CastlingSquares {
+            empty_indices: &[61, 62],
+            check_indices: &[61, 62],
+            king_start_index: 60,
+            rook_start_index: 63,
+            rook_target_index: 61,
+        })
+    } else if mov.indices() == (4, 6) {
+        Ok(CastlingSquares {
+            empty_indices: &[5, 6],
+            check_indices: &[5, 6],
+            king_start_index: 4,
+            rook_start_index: 7,
+            rook_target_index: 5,
+        })
+    } else if mov.indices() == (60, 58) {
+        Ok(CastlingSquares {
+            empty_indices: &[57, 58, 59],
+            check_indices: &[58, 59],
+            king_start_index: 60,
+            rook_start_index: 56,
+            rook_target_index: 59,
+        })
+    } else if mov.indices() == (4, 2) {
+        Ok(CastlingSquares {
+            empty_indices: &[1, 2, 3],
+            check_indices: &[2, 3],
+            king_start_index: 4,
+            rook_start_index: 0,
+            rook_target_index: 3,
+        })
+    } else {
+        Err(board::Error::InvalidCastlingMove(*mov))
     }
 }

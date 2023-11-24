@@ -8,15 +8,15 @@ macro_rules! old_implementation {
     (type) => { Vec<Move> };
 }
 macro_rules! new_implementation {
-    () => { new!(hash_set) };
-    (type) => { HashSet<Move> };
+    () => { new!(retain) };
+    (type) => { Vec<Move> };
 }
 fn old_name() -> String {
     "Retain".into()
 }
 
 fn new_name() -> String {
-    "HashSet".into()
+    "Retain".into()
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
@@ -80,6 +80,7 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     macro_rules! create_bench_function {
         ($name:ident, |$board:ident| $body:expr) => {
+            #[allow(dead_code)]
             fn $name<T: Clone + IntoIterator<Item = Move>>($board: &mut impl Playable<T>) {
                 $body
             }

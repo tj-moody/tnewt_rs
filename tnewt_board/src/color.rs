@@ -7,7 +7,6 @@ pub enum Color {
 }
 
 impl Color {
-    #[must_use]
     pub fn from(turn: &str) -> Result<Self, board::Error> {
         match turn {
             "w" => Ok(Color::White),

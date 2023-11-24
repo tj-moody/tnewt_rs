@@ -1,5 +1,3 @@
-// use rustc_hash::FxHashSet;
-use crate::piece::Piece;
 use colored::Colorize;
 
 use std::fmt::Debug;
@@ -7,8 +5,10 @@ use std::num::ParseIntError;
 
 use crate::castling;
 use crate::color::Color;
-use crate::mov::{BasicMove, CastlingMove, Move, PromotionMove};
-use crate::piece::{PieceKind, Square};
+use crate::mov::Move;
+use crate::piece::{Piece, PieceKind, Square};
+
+pub const STARTING_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
 pub enum GameState {
@@ -29,6 +29,7 @@ pub enum Error {
     MoveEmptySquare,
     NoKing,
     UndoFromFirstMove,
+    InvalidCastlingMove(Move),
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
@@ -94,7 +95,7 @@ where Self: Sized {
     /// ])?;
     /// ```
     fn from_chars(chars: &[char; 64]) -> Result<Self, Error>
-where
+    where
         Self: Sized;
 
     /// Returns a playable board.
@@ -111,7 +112,7 @@ where
     ///
     /// See: https://en.wikipedia.org/wiki/Forsyth-Edwards_Notation
     fn from_fen(fen: &str) -> Result<Self, Error>
-where
+    where
         Self: Sized;
 
     /// Returns the current position of the board.
@@ -127,7 +128,7 @@ where
     /// See: https://en.wikipedia.org/wiki/Forsyth-Edwards_Notation
     fn to_fen(&self) -> &str {
         let mut squares = [' '; 64];
-        for (i, &square) in self.squares().iter().enumerate() {
+        for (i, square) in self.squares().iter().enumerate() {
             squares[i] = Piece::square_to_char(square);
         }
         for char in squares.iter() {
@@ -148,7 +149,7 @@ where
 
     /// Prints the current position in a human-readable format.
     fn display(&self) {
-        for (i, &square) in self.squares().iter().enumerate() {
+        for (i, square) in self.squares().iter().enumerate() {
             print!("{} ", Piece::display_square(square));
             if i % 8 == 7 {
                 for j in i - 7..=i {
@@ -175,18 +176,13 @@ where
         &self,
         moves: &T,
         shown_pieces: Vec<PieceKind>,
-        show_castling: bool,
     ) -> Result<(), Error> {
-        BasicMove::dbg_moves(
-            &(*moves
+        Move::dbg_moves(
+            &moves
                 .clone()
                 .into_iter()
-                .filter_map(|m| match m {
-                    Move::BasicMove(bm) => Some(bm),
-                    _ => None,
-                })
                 .map(|m| {
-                    if shown_pieces == &[] {
+                    if shown_pieces.is_empty() {
                         return Ok(Some(m));
                     }
                     let piece_kind = match self.squares()[m.start_index] {
@@ -200,32 +196,8 @@ where
                 })
                 .collect::<Result<Vec<Option<_>>, Error>>()?
                 .into_iter()
-                .filter_map(|m| m)
-                .collect::<Vec<_>>()),
-            &self.squares(),
-        );
-        if !show_castling {
-            return Ok(());
-        }
-        CastlingMove::dbg_moves(
-            &(*moves
-                .clone()
-                .into_iter()
-                .filter_map(|m| match m {
-                    Move::CastlingMove(cm) => Some(cm),
-                    _ => None,
-                })
-                .collect::<Vec<_>>()),
-        );
-        PromotionMove::dbg_moves(
-            &(*moves
-                .clone()
-                .into_iter()
-                .filter_map(|m| match m {
-                    Move::PromotionMove(pm) => Some(pm),
-                    _ => None,
-                })
-                .collect::<Vec<_>>()),
+                .flatten()
+                .collect::<Vec<_>>(),
             &self.squares(),
         );
         Ok(())
@@ -258,14 +230,14 @@ where
     fn king_index(&self, color: Color) -> Result<usize, Error> {
         match self.squares().iter().position(|&square| {
             square
-            == Some(Piece {
-                kind: PieceKind::King,
-                color,
-            })
+                == Some(Piece {
+                    kind: PieceKind::King,
+                    color,
+                })
         }) {
-                Some(index) => Ok(index),
-                None => Err(Error::NoKing),
-            }
+            Some(index) => Ok(index),
+            None => Err(Error::NoKing),
+        }
     }
 
     /// Generates the board's current legal moves and displays them in a
@@ -278,7 +250,7 @@ where
     /// This function will return an error if move generation fails.
     fn gen_and_display_moves(&mut self) -> Result<(), Error> {
         let moves = self.gen_legal_moves()?;
-        self.display_moves(&moves, vec![], true)?;
+        self.display_moves(&moves, vec![])?;
         Ok(())
     }
 
@@ -288,8 +260,17 @@ where
     ///
     /// This function will return an error if `start_index` or `target_index` are not within
     /// 0..64, if `start_index` is an empty square, or if the move is not legal.
-    fn dbg_play_move(&mut self, start_index: usize, target_index: usize) -> Result<(), Error> {
-        self.make_move(&BasicMove::from(&[start_index, target_index]).into())?;
+    fn dbg_play_move(
+        &mut self,
+        start_index: usize,
+        target_index: usize,
+        promotion_kind: Option<PieceKind>,
+    ) -> Result<(), Error> {
+        if let Some(kind) = promotion_kind {
+            self.make_move(&Move::new(start_index, target_index).set_promotion_kind(kind))?;
+        } else {
+            self.make_move(&Move::new(start_index, target_index))?;
+        }
         Ok(())
     }
 
@@ -394,7 +375,7 @@ where
     /// History is only stored if the `DEBUG_HISTORY` global is set to true.
     fn display_history(&self) {
         for board in &self._history() {
-            for (i, &square) in board.iter().enumerate() {
+            for (i, square) in board.iter().enumerate() {
                 print!("{} ", Piece::display_square(square));
                 if i % 8 == 7 {
                     for j in i - 7..=i {
@@ -469,7 +450,6 @@ macro_rules! board_type {
         implementations::$implementation::Board
     };
 }
-
 
 #[macro_export]
 macro_rules! new {

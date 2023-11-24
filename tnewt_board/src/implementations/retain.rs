@@ -8,7 +8,7 @@ use crate::{castling, color, coordinate, mov, piece};
 
 use color::Color;
 use coordinate::Coordinate;
-use mov::{BasicMove, Move, PromotionMove};
+use mov::Move;
 use piece::{Piece, PieceKind};
 
 // use crate::board::*;
@@ -21,7 +21,7 @@ pub struct Board {
     pub state_history: Vec<board::State>,
     pub history: Vec<[Option<Piece>; 64]>,
     pub algorithm: board::Algorithm,
-    pub implementation: String,
+    pub store_history: bool,
 }
 
 const STORE_HISTORY: bool = false;
@@ -62,13 +62,7 @@ impl Board {
                     break;
                 }
 
-                moves.push(
-                    BasicMove {
-                        start_index,
-                        target_index,
-                    }
-                    .into(),
-                );
+                moves.push(Move::new(start_index, target_index));
 
                 if target_square.is_some() {
                     break;
@@ -89,13 +83,7 @@ impl Board {
                 let target_square = self.squares[target_index];
 
                 if !Piece::is_same_color(start_square, target_square) {
-                    moves.push(
-                        BasicMove {
-                            start_index,
-                            target_index,
-                        }
-                        .into(),
-                    );
+                    moves.push(Move::new(start_index, target_index));
                 }
             }
         }
@@ -136,13 +124,10 @@ impl Board {
             let target_index: usize = (start_index as i32 + offsets[0]) as usize;
             let target_square = self.squares[target_index];
             if target_square.is_none() {
-                let mov = BasicMove {
-                    start_index,
-                    target_index,
-                };
+                let mov = Move::new(start_index, target_index);
                 if rank == invalid_ranks[1] {
-                    for promotion_move in &PromotionMove::from_move(mov) {
-                        moves.push(Move::PromotionMove(*promotion_move));
+                    for promotion_move in mov.promotion_moves() {
+                        moves.push(promotion_move);
                     }
                 } else {
                     moves.push(mov.into());
@@ -151,13 +136,7 @@ impl Board {
                     let target_index: usize = (start_index as i32 + offsets[1]) as usize;
                     let target_square = self.squares[target_index];
                     if target_square.is_none() {
-                        moves.push(
-                            BasicMove {
-                                start_index,
-                                target_index,
-                            }
-                            .into(),
-                        );
+                        moves.push(Move::new(start_index, target_index));
                     }
                 }
             }
@@ -165,16 +144,13 @@ impl Board {
         if file != 0 {
             let target_index: usize = (start_index as i32 + offsets[2]) as usize;
             let target_square = self.squares[target_index];
-            if (!Piece::is_same_color(start_square, target_square) && !target_square.is_none())
+            if (!Piece::is_same_color(start_square, target_square) && target_square.is_some())
                 || Some(target_index) == self.state.ep_index
             {
-                let mov = BasicMove {
-                    start_index,
-                    target_index,
-                };
+                let mov = Move::new(start_index, target_index);
                 if rank == invalid_ranks[1] {
-                    for promotion_move in &PromotionMove::from_move(mov) {
-                        moves.push(Move::PromotionMove(*promotion_move));
+                    for promotion_move in mov.promotion_moves() {
+                        moves.push(promotion_move);
                     }
                 } else {
                     moves.push(mov.into());
@@ -184,16 +160,13 @@ impl Board {
         if file != 7 {
             let target_index: usize = (start_index as i32 + offsets[3]) as usize;
             let target_square = self.squares[target_index];
-            if (!Piece::is_same_color(start_square, target_square) && !target_square.is_none())
+            if (!Piece::is_same_color(start_square, target_square) && target_square.is_some())
                 || Some(target_index) == self.state.ep_index
             {
-                let mov = BasicMove {
-                    start_index,
-                    target_index,
-                };
+                let mov = Move::new(start_index, target_index);
                 if rank == invalid_ranks[1] {
-                    for promotion_move in &PromotionMove::from_move(mov) {
-                        moves.push(Move::PromotionMove(*promotion_move));
+                    for promotion_move in mov.promotion_moves() {
+                        moves.push(promotion_move);
                     }
                 } else {
                     moves.push(mov.into());
@@ -207,24 +180,16 @@ impl Board {
         self.state
             .castling_state
             .get_moves(&self.state.turn)
-            .iter()
-            .for_each(|&m| {
-                let mut empty_indices: Vec<usize> = Vec::with_capacity(3);
-                let mut king_index: usize = 64;
-                let mut rook_index: usize = 64;
-
-                if let Move::BasicMove(_) = m {
-                    panic!("`CastlingState.get_moves()` returned `BasicMoves`s");
-                } else if let Move::CastlingMove(castling_move) = m {
-                    (empty_indices, _, king_index, rook_index) = castling_move.get_squares();
-                }
-                for &empty_index in &empty_indices {
-                    match self.squares[empty_index] {
-                        Some(_) => return,
-                        None => (),
+            .into_iter()
+            .for_each(|mov| {
+                let castling_squares = castling::get_squares(&mov)
+                    .expect("Generate invalid castling move from `castling_state.gen_moves()");
+                for &empty_index in castling_squares.empty_indices {
+                    if self.squares[empty_index].is_some() {
+                        return;
                     };
                 }
-                match self.squares[king_index] {
+                match self.squares[castling_squares.king_start_index] {
                     Some(piece) => match piece.kind {
                         PieceKind::King => {
                             if piece.color != self.state.turn {
@@ -235,7 +200,7 @@ impl Board {
                     },
                     None => return,
                 };
-                match self.squares[rook_index] {
+                match self.squares[castling_squares.rook_start_index] {
                     Some(piece) => match piece.kind {
                         PieceKind::Rook => {
                             if piece.color != self.state.turn {
@@ -246,7 +211,7 @@ impl Board {
                     },
                     None => return,
                 };
-                moves.push(m);
+                moves.push(mov);
             });
     }
 
@@ -301,19 +266,8 @@ impl Board {
         };
 
         for mov in &moves {
-            match mov {
-                Move::BasicMove(m) => {
-                    if m.target_index == index {
-                        return Ok(true);
-                    }
-                }
-                Move::PromotionMove(pm) => {
-                    if pm.pawn_move.target_index == index {
-                        return Ok(true);
-                    }
-                }
-                // Cannot capture by castling
-                Move::CastlingMove(_) => (),
+            if mov.target_index == index {
+                return Ok(true);
             }
         }
         // self.change_turn();
@@ -327,18 +281,30 @@ impl Playable<Vec<Move>> for Board {
     /// and `unmake_move` sequentially, without mutating anywhere else.
     fn gen_legal_moves(&mut self) -> Result<Vec<Move>, board::Error> {
         let mut moves = self.gen_pseudo_legal_moves()?;
-        moves.retain(|m| {
-            let mut king_indices: Vec<usize>;
-            if let Move::CastlingMove(cm) = m {
-                king_indices = cm.get_squares().1;
-                if self
-                    .attacked(self.king_index(self.state.turn).unwrap())
-                    .unwrap()
-                {
-                    return false;
+        moves.retain(|mov| {
+            let piece = self.squares[mov.start_index].expect("Attempt to move empty square");
+
+            let mut check_indices: Vec<usize>;
+            if piece.kind == PieceKind::King {
+                // TODO: Convert into method of `Move`
+                let mut is_castling = false;
+                let offset = mov.target_index as i32 - mov.start_index as i32;
+                if offset == 2 || offset == -2 {
+                    is_castling = true;
+                }
+                if is_castling {
+                    check_indices = castling::get_squares(&mov).unwrap().check_indices.to_vec();
+                    if self
+                        .attacked(self.king_index(self.state.turn).unwrap())
+                        .unwrap()
+                    {
+                        return false;
+                    }
+                } else {
+                    check_indices = vec![];
                 }
             } else {
-                king_indices = vec![];
+                check_indices = vec![];
             }
             let opponent_responses: Vec<Move>;
             let king_index: usize;
@@ -346,13 +312,13 @@ impl Playable<Vec<Move>> for Board {
             match self.algorithm {
                 board::Algorithm::Clone => {
                     let mut board = self.clone();
-                    board.make_move(m).unwrap();
+                    board.make_move(mov).unwrap();
 
                     opponent_responses = board.gen_pseudo_legal_moves().unwrap();
                     king_index = board.king_index(board.state.turn.opposite()).unwrap();
                 }
                 board::Algorithm::Unmove => {
-                    self.make_move(m).unwrap();
+                    self.make_move(mov).unwrap();
 
                     opponent_responses = self.gen_pseudo_legal_moves().unwrap();
                     // king_index = self.king_index(self.state.turn.opposite()).unwrap();
@@ -368,21 +334,12 @@ impl Playable<Vec<Move>> for Board {
                     self.unmake_move().unwrap();
                 }
             }
-            king_indices.push(king_index);
+            check_indices.push(king_index);
 
             for &response in &opponent_responses {
-                match response {
-                    Move::BasicMove(response) => {
-                        if king_indices.contains(&response.target_index) {
-                            return false;
-                        }
-                    }
-                    Move::PromotionMove(response) => {
-                        if king_indices.contains(&response.pawn_move.target_index) {
-                            return false;
-                        }
-                    }
-                    Move::CastlingMove(_) => (),
+                // TODO: Check if not handling the king move from castling causes issues
+                if check_indices.contains(&response.target_index) {
+                    return false;
                 }
             }
 
@@ -438,7 +395,7 @@ impl Playable<Vec<Move>> for Board {
             state_history: vec![],
             history: vec![],
             algorithm: board::Algorithm::Clone,
-            implementation: "Retain".into(),
+            store_history: STORE_HISTORY,
         })
     }
 
@@ -490,50 +447,57 @@ impl Playable<Vec<Move>> for Board {
     }
 
     fn make_move(&mut self, m: &Move) -> Result<(), board::Error> {
+        let moving_piece = match self.squares[m.start_index] {
+            Some(piece) => piece,
+            None => return Err(board::Error::MoveEmptySquare),
+        };
+        let captured_square = self.squares[m.target_index];
+
+        debug_assert_eq!(moving_piece.color, self.state.turn);
+
         if self.algorithm == board::Algorithm::Unmove {
             self.state_history.push(self.state);
         }
         let color = self.state.turn;
-        let mov: BasicMove = match m {
-            Move::BasicMove(mov) => *mov,
-            Move::CastlingMove(mov) => {
-                self.state
-                    .castling_state
-                    .revoke(castling::Rights::Both, &color);
-                mov.king_move
-            }
-            Move::PromotionMove(mov) => mov.pawn_move,
-        };
 
+        // The index of the pawn being captured via en passant, if any
         let ep_taken_index: Option<usize> = (|| {
             if let Some(index) = self.state.ep_index {
-                if mov.target_index != index {
+                if m.target_index != index {
                     return None;
                 }
-                if let Some(piece) = self.squares[mov.start_index] {
-                    if piece.kind != PieceKind::Pawn {
-                        return None;
-                    }
-                    return Some(match color {
-                        Color::White => mov.target_index + 8,
-                        Color::Black => mov.target_index - 8,
-                    });
+                debug_assert_eq!(self.squares[m.target_index], None);
+
+                if moving_piece.kind != PieceKind::Pawn {
+                    return None;
                 }
+                return Some(match color {
+                    Color::White => m.target_index + 8,
+                    Color::Black => m.target_index - 8,
+                });
             }
             None
         })();
 
-        let moving_piece = self.squares[mov.start_index];
-        let captured_piece = self.squares[mov.target_index];
+        // DEBUG_ONLY:
+        if let Some(index) = ep_taken_index {
+            debug_assert_eq!(
+                self.squares[index],
+                Some(Piece {
+                    kind: PieceKind::Pawn,
+                    color: self.state.turn.opposite()
+                })
+            );
+        }
 
         if self.algorithm == board::Algorithm::Unmove {
             self.state.last_ep_taken_index = ep_taken_index;
             self.state.last_move = Some(*m);
-            self.state.last_captured_square = Some(self.squares[mov.target_index]);
+            self.state.last_captured_square = Some(self.squares[m.target_index]);
         }
 
         self.state.ep_index = None;
-        match captured_piece {
+        match captured_square {
             Some(piece) => {
                 match piece.kind {
                     PieceKind::King => {
@@ -542,7 +506,7 @@ impl Playable<Vec<Move>> for Board {
                         // to allow to check if currently in check
                     }
                     PieceKind::Rook => {
-                        match mov.target_index {
+                        match m.target_index {
                             0 | 56 => self
                                 .state
                                 .castling_state
@@ -565,71 +529,65 @@ impl Playable<Vec<Move>> for Board {
             }
         };
 
-        match moving_piece {
-            Some(piece) => match piece.kind {
-                PieceKind::King => self
+        let mut is_castling = false;
+        match moving_piece.kind {
+            PieceKind::King => {
+                self.state
+                    .castling_state
+                    .revoke(castling::Rights::Both, &self.state.turn);
+                let offset = m.target_index as i32 - m.start_index as i32;
+                if offset == 2 || offset == -2 {
+                    is_castling = true;
+                }
+            }
+            PieceKind::Rook => match m.start_index {
+                0 | 56 => self
                     .state
                     .castling_state
-                    .revoke(castling::Rights::Both, &self.state.turn),
-                PieceKind::Rook => match mov.start_index {
-                    0 | 56 => self
-                        .state
-                        .castling_state
-                        .revoke(castling::Rights::Queenside, &color),
-                    7 | 63 => self
-                        .state
-                        .castling_state
-                        .revoke(castling::Rights::Kingside, &color),
-                    _ => (),
-                },
-                PieceKind::Pawn => {
-                    self.state.halfmove_clock = 0;
-                    let offset: isize = mov.target_index as isize - mov.start_index as isize;
-                    self.state.ep_index = match offset {
-                        -16 => Some(mov.start_index - 8),
-                        16 => Some(mov.start_index + 8),
-                        _ => None,
-                    };
-                }
+                    .revoke(castling::Rights::Queenside, &color),
+                7 | 63 => self
+                    .state
+                    .castling_state
+                    .revoke(castling::Rights::Kingside, &color),
                 _ => (),
             },
-            None => return Err(board::Error::MoveEmptySquare),
+            PieceKind::Pawn => {
+                self.state.halfmove_clock = 0;
+                let offset: isize = m.target_index as isize - m.start_index as isize;
+                self.state.ep_index = match offset {
+                    -16 => Some(m.start_index - 8),
+                    16 => Some(m.start_index + 8),
+                    _ => None,
+                };
+            }
+            _ => (),
         };
         if self.state.halfmove_clock >= 50 {
             self.state.game_state = board::GameState::Draw;
         }
 
-        if STORE_HISTORY {
+        if self.store_history {
             self.history.push(self.squares);
         }
 
-        match m {
-            Move::BasicMove(m) => {
-                if let Some(pawn_index) = ep_taken_index {
-                    self.squares[pawn_index] = None;
-                }
-                self.squares[m.target_index] = self.squares[m.start_index];
-                self.squares[m.start_index] = None;
-            }
-            Move::CastlingMove(cm) => {
-                self.squares[cm.king_move.target_index] = Some(Piece {
-                    kind: PieceKind::King,
-                    color,
-                });
-                self.squares[cm.rook_move.target_index] = Some(Piece {
-                    kind: PieceKind::Rook,
-                    color,
-                });
-                self.squares[cm.king_move.start_index] = None;
-                self.squares[cm.rook_move.start_index] = None;
-            }
-            Move::PromotionMove(pm) => {
-                self.squares[pm.pawn_move.target_index] = Some(Piece {
-                    kind: pm.promotion_kind,
-                    color,
-                });
-                self.squares[pm.pawn_move.start_index] = None;
-            }
+        if let Some(pawn_index) = ep_taken_index {
+            self.squares[pawn_index] = None;
+        }
+        self.squares[m.target_index] = self.squares[m.start_index];
+        self.squares[m.start_index] = None;
+
+        if is_castling {
+            let castling_squares = castling::get_squares(m)?;
+            self.squares[castling_squares.rook_target_index] = Some(Piece {
+                kind: PieceKind::Rook,
+                color,
+            });
+            self.squares[castling_squares.rook_start_index] = None;
+        }
+        if let Some(kind) = m.promotion_kind {
+            debug_assert_eq!(moving_piece.kind, PieceKind::Pawn);
+            self.squares[m.target_index] = Some(Piece { kind, color });
+            self.squares[m.start_index] = None;
         }
 
         if self.state.turn == Color::Black {
@@ -663,37 +621,53 @@ impl Playable<Vec<Move>> for Board {
             self.history.pop();
         }
 
-        match last_move {
-            Move::BasicMove(mov) => {
-                if let Some(index) = last_ep_taken_index {
-                    self.squares[index] = Some(Piece {
-                        kind: PieceKind::Pawn,
-                        color: self.state.turn.opposite(),
-                    });
+        if let Some(index) = last_ep_taken_index {
+            self.squares[index] = Some(Piece {
+                kind: PieceKind::Pawn,
+                color: self.state.turn.opposite(),
+            });
+        }
+
+        let last_moved_square = self.squares[last_move.target_index];
+
+        self.squares[last_move.target_index] = last_captured_square;
+        if last_move.promotion_kind.is_some() {
+            self.squares[last_move.start_index] = Some(Piece {
+                kind: PieceKind::Pawn,
+                color,
+            });
+        } else {
+            self.squares[last_move.start_index] = last_moved_square;
+        }
+
+        let is_castling = (|| {
+            if let Some(piece) = last_moved_square {
+                if piece.kind != PieceKind::King {
+                    return Ok(false);
                 }
-                let last_moved_square = self.squares[mov.target_index];
-                self.squares[mov.target_index] = last_captured_square;
-                self.squares[mov.start_index] = last_moved_square;
+                let offset = last_move.target_index as i32 - last_move.start_index as i32;
+                if offset != 2 && offset != -2 {
+                    return Ok(false);
+                }
+                Ok(true)
+            } else {
+                return Err(board::Error::MoveEmptySquare);
             }
-            Move::CastlingMove(cm) => {
-                self.squares[cm.king_move.start_index] = Some(Piece {
-                    kind: PieceKind::King,
-                    color,
-                });
-                self.squares[cm.rook_move.start_index] = Some(Piece {
-                    kind: PieceKind::Rook,
-                    color,
-                });
-                self.squares[cm.king_move.target_index] = None;
-                self.squares[cm.rook_move.target_index] = None;
-            }
-            Move::PromotionMove(pm) => {
-                self.squares[pm.pawn_move.target_index] = last_captured_square;
-                self.squares[pm.pawn_move.start_index] = Some(Piece {
-                    kind: PieceKind::Pawn,
-                    color,
-                });
-            }
+        })()?;
+
+        if is_castling {
+            let castling_squares = match castling::get_squares(&last_move) {
+                Ok(v) => v,
+                Err(e) => {
+                    self.display();
+                    return Err(e);
+                },
+            };
+            self.squares[castling_squares.rook_start_index] = Some(Piece {
+                kind: PieceKind::Rook,
+                color,
+            });
+            self.squares[castling_squares.rook_target_index] = None;
         }
 
         Ok(())
@@ -713,7 +687,7 @@ impl Playable<Vec<Move>> for Board {
 
     fn display_history(&self) {
         for board in &self.history {
-            for (i, &square) in board.iter().enumerate() {
+            for (i, square) in board.iter().enumerate() {
                 print!("{} ", Piece::display_square(square));
                 if i % 8 == 7 {
                     for j in i - 7..=i {

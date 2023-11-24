@@ -13,7 +13,6 @@ pub enum Coordinate {
     H1, H2, H3, H4, H5, H6, H7, H8,
 }
 impl Coordinate {
-    #[must_use]
     #[rustfmt::skip]
     pub fn from(coordinate: &str) -> Result<Option<Self>, Error> {
         match coordinate {// {{{

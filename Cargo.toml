@@ -11,6 +11,9 @@ criterion = { version = "0.4", features = ["html_reports"] }
 [profile.release]
 debug = true
 
+[profile.test]
+debug_assertions = true
+
 [[bench]]
 name = "board_bench"
 harness = false
