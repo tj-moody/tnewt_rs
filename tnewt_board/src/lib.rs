@@ -1,4 +1,4 @@
-mod magic_numbers;
+pub mod magic_numbers;
 
 pub mod board;
 pub mod piece;

@@ -9,7 +9,7 @@ macro_rules! old_implementation {
     (type) => { Vec<Move> };
 }
 macro_rules! new_implementation {
-    () => { new!(retain) };
+    () => { new!(threat_squares) };
     (type) => { Vec<Move> };
 }
 fn old_name() -> String {
@@ -17,7 +17,7 @@ fn old_name() -> String {
 }
 
 fn new_name() -> String {
-    "Retain".into()
+    "Threat Squares".into()
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
@@ -126,7 +126,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     });
 
     // add_benches!(random_game, new_board_moves);
-    add_benches!(old, depth_pos_count);
+    add_benches!(depth_pos_count);
 }
 
 criterion_group!(benches, criterion_benchmark);

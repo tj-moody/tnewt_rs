@@ -19,12 +19,12 @@ mod tests {
 
     macro_rules! new {
         () => {
-            tnewt_board::new!(retain)
+            tnewt_board::new!(threat_squares)
         };
     }
     macro_rules! from_fen {
         ($fen:expr) => {
-            tnewt_board::from_fen!(retain, $fen)
+            tnewt_board::from_fen!(threat_squares, $fen)
         };
     }
 
