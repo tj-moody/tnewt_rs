@@ -74,17 +74,11 @@ impl Board {
     }
 
     fn knight_gen_moves(&self, moves: &mut Vec<Move>, start_index: usize) {
-        for offset in &KNIGHT_XY_OFFSETS {
-            let (start_x, start_y) = (start_index % 8, start_index / 8 % 8);
-            let (target_x, target_y) = (start_x as i32 + offset[0], start_y as i32 + offset[1]);
-            if (0..8).contains(&target_x) && (0..8).contains(&target_y) {
-                let target_index = (start_index as i32 + offset[2]) as usize;
-                let start_square = self.squares[start_index];
-                let target_square = self.squares[target_index];
-
-                if !Piece::is_same_color(start_square, target_square) {
-                    moves.push(Move::new(start_index, target_index));
-                }
+        let start_square = self.squares[start_index];
+        for &target_index in KNIGHT_THREAT_INDICES[start_index] {
+            let target_square = self.squares[target_index];
+            if !Piece::is_same_color(start_square, target_square) {
+                moves.push(Move::new(start_index, target_index));
             }
         }
     }
@@ -238,9 +232,7 @@ impl Board {
     }
 
     /// Only checks if the color whose turn it is has their piece at `index` being attacked
-    fn attacked(&mut self, index: usize) -> Result<bool, board::Error> {
-        let mut board = self.clone();
-
+    fn is_attacked(&mut self, indices: &[usize], king_color: Color) -> Result<bool, board::Error> {
         // NOTE: Shouldn't be necessary to update board state with play_move,
         // as none of the board state can make possible/impossible a capture
         // on the next turn: en passant cannot capture a king, 50-move rule is
@@ -254,9 +246,54 @@ impl Board {
         // bugs in num_moves tests, so probably move/unmove correctness-related.
 
         // self.change_turn();
-        board.change_turn();
+        for &start_index in indices {
+            for &knight_index in KNIGHT_THREAT_INDICES[start_index] {
+                if let Some(piece) = self.squares[knight_index] {
+                    if piece.kind == PieceKind::Knight && piece.color != king_color {
+                        return Ok(true);
+                    }
+                }
+            }
 
-        let moves = board.gen_pseudo_legal_moves(THREAT_INDICES[index])?;
+            let pawn_threat_offsets = get_pawn_threat_offsets(king_color);
+            for (direction_index, offset) in DIRECTION_OFFSETS.iter().enumerate() {
+                let threat_pieces = get_threat_pieces(direction_index)?;
+                for n in 0..SQUARES_TO_EDGE[start_index][direction_index] {
+                    let target_index: usize = (start_index as i32 + (offset * (n + 1))) as usize;
+
+                    let target_square = self.squares[target_index];
+
+                    match target_square {
+                        Some(piece) => {
+                            if piece.color == king_color {
+                                break;
+                            }
+                            if threat_pieces.contains(&piece.kind) {
+                                return Ok(true);
+                            }
+                            if n == 0 && piece.kind == PieceKind::Pawn {
+                                if pawn_threat_offsets.contains(&offset) {
+                                    return Ok(true);
+                                }
+                            }
+                            break;
+                        }
+                        None => continue,
+                    }
+                }
+            }
+        }
+        if true {
+            return Ok(false);
+        }
+
+        // board.change_turn();
+        // let moves = self.gen_pseudo_legal_moves(threat_indices)?;
+        // for mov in moves {
+        //     if indices.contains(&mov.target_index) {
+        //         return Ok(true);
+        //     }
+        // }
 
         // let moves = match board.index_gen_pseudo_legal_moves(0, &mut moves) {
         //     Ok(moves) => moves,
@@ -267,11 +304,6 @@ impl Board {
         //     }
         // };
 
-        for mov in &moves {
-            if mov.target_index == index {
-                return Ok(true);
-            }
-        }
         // self.change_turn();
 
         Ok(false)
@@ -284,70 +316,40 @@ impl Playable<Vec<Move>> for Board {
     fn gen_legal_moves(&mut self) -> Result<Vec<Move>, board::Error> {
         let mut moves = self.gen_pseudo_legal_moves(ALL_INDICES)?;
         moves.retain(|mov| {
-            let mut check_indices: Vec<usize>;
-            if mov.is_castling(&self.squares).unwrap() {
-                check_indices = castling::get_squares(&mov).unwrap().check_indices.to_vec();
-                if self
-                    .attacked(self.king_index(self.state.turn).unwrap())
-                    .unwrap()
-                {
-                    return false;
-                }
-            } else {
-                check_indices = vec![];
-            }
-
+            let is_castling = mov.is_castling(&self.squares).unwrap();
             let king_index: usize;
 
-            let opponent_responses: Vec<Move>;
             match self.algorithm {
                 board::Algorithm::Clone => {
                     let mut board = self.clone();
                     board.make_move(mov).unwrap();
 
                     king_index = board.king_index(board.state.turn.opposite()).unwrap();
-                    check_indices.push(king_index);
+                    let check_indices = match is_castling {
+                        true => castling::get_squares(&mov).unwrap().check_indices.to_vec(),
+                        false => vec![king_index],
+                    };
 
-                    let mut threat_indices = check_indices
-                        .iter()
-                        .map(|&i| THREAT_INDICES[i])
-                        .collect::<Vec<_>>()
-                        .concat();
-                    threat_indices.dedup();
-
-                    opponent_responses = board
-                        .gen_pseudo_legal_moves(threat_indices.as_slice())
-                        .unwrap();
+                    !board
+                        .is_attacked(&check_indices, board.state.turn.opposite())
+                        .unwrap()
                 }
                 board::Algorithm::Unmove => {
                     self.make_move(mov).unwrap();
 
                     king_index = self.king_index(self.state.turn.opposite()).unwrap();
-                    check_indices.push(king_index);
+                    let check_indices = match is_castling {
+                        true => castling::get_squares(&mov).unwrap().check_indices.to_vec(),
+                        false => vec![king_index],
+                    };
 
-                    let mut threat_indices = check_indices
-                        .iter()
-                        .map(|&i| THREAT_INDICES[i])
-                        .collect::<Vec<_>>()
-                        .concat();
-                    threat_indices.dedup();
-
-                    opponent_responses = self
-                        .gen_pseudo_legal_moves(threat_indices.as_slice())
+                    let is_attacked = self
+                        .is_attacked(&check_indices, self.state.turn.opposite())
                         .unwrap();
-
                     self.unmake_move().unwrap();
+                    !is_attacked
                 }
             }
-
-            for &response in &opponent_responses {
-                // TODO: Check if not handling the king move from castling causes issues
-                if check_indices.contains(&response.target_index) {
-                    return false;
-                }
-            }
-
-            true
         });
         Ok(moves)
     }
@@ -688,7 +690,8 @@ impl Playable<Vec<Move>> for Board {
         match mov {
             Some(mov) => self.make_move(mov)?,
             None => {
-                if self.attacked(self.king_index(self.state.turn)?)? {
+                let king_index = self.king_index(self.state.turn)?;
+                if self.is_attacked(&[king_index], self.state.turn)? {
                     self.state.game_state = board::GameState::Victory(self.state.turn.opposite());
                 } else {
                     self.state.game_state = board::GameState::Draw;

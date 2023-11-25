@@ -5,19 +5,19 @@ use board::{Algorithm, Playable};
 use tnewt_board::{mov::Move, *};
 
 macro_rules! old_implementation {
-    () => { new!(retain) };
-    (type) => { Vec<Move> };
-}
-macro_rules! new_implementation {
     () => { new!(threat_squares) };
     (type) => { Vec<Move> };
 }
+macro_rules! new_implementation {
+    () => { new!(more_magic) };
+    (type) => { Vec<Move> };
+}
 fn old_name() -> String {
-    "Retain".into()
+    "Threat Squares".into()
 }
 
 fn new_name() -> String {
-    "Threat Squares".into()
+    "More Magic".into()
 }
 
 fn criterion_benchmark(c: &mut Criterion) {

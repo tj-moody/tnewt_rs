@@ -27,9 +27,11 @@ pub enum Error {
     InvalidPieceChar(char),
     PieceFromEmptySquare,
     MoveEmptySquare,
+    MoveOppositeColor,
     NoKing,
     UndoFromFirstMove,
-    InvalidCastlingMove(Move),
+    InvalidCastlingMove(usize),
+    InvalidDirectionIndex(usize),
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]

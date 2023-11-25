@@ -129,7 +129,7 @@ pub fn get_squares(mov: &Move) -> Result<CastlingSquares, board::Error> {
     if mov.indices() == (60, 62) {
         Ok(CastlingSquares {
             empty_indices: &[61, 62],
-            check_indices: &[61, 62],
+            check_indices: &[60, 61, 62],
             king_start_index: 60,
             rook_start_index: 63,
             rook_target_index: 61,
@@ -137,7 +137,7 @@ pub fn get_squares(mov: &Move) -> Result<CastlingSquares, board::Error> {
     } else if mov.indices() == (4, 6) {
         Ok(CastlingSquares {
             empty_indices: &[5, 6],
-            check_indices: &[5, 6],
+            check_indices: &[4, 5, 6],
             king_start_index: 4,
             rook_start_index: 7,
             rook_target_index: 5,
@@ -145,7 +145,7 @@ pub fn get_squares(mov: &Move) -> Result<CastlingSquares, board::Error> {
     } else if mov.indices() == (60, 58) {
         Ok(CastlingSquares {
             empty_indices: &[57, 58, 59],
-            check_indices: &[58, 59],
+            check_indices: &[58, 59, 60],
             king_start_index: 60,
             rook_start_index: 56,
             rook_target_index: 59,
@@ -153,12 +153,12 @@ pub fn get_squares(mov: &Move) -> Result<CastlingSquares, board::Error> {
     } else if mov.indices() == (4, 2) {
         Ok(CastlingSquares {
             empty_indices: &[1, 2, 3],
-            check_indices: &[2, 3],
+            check_indices: &[2, 3, 4],
             king_start_index: 4,
             rook_start_index: 0,
             rook_target_index: 3,
         })
     } else {
-        Err(board::Error::InvalidCastlingMove(*mov))
+        Err(board::Error::InvalidCastlingMove(mov.target_index))
     }
 }

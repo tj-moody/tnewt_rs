@@ -2,7 +2,7 @@
 use color_eyre::eyre::Result;
 
 use board::Playable;
-use tnewt_board::{board, from_chars};
+use tnewt_board::board;
 use tnewt_board::board::Algorithm;
 use tnewt_board::implementations;
 use tnewt_board::mov::Move;
@@ -31,17 +31,10 @@ static EMPTY_POSITION: &[char; 64] = &[
 ];
 
 fn main() -> Result<(), board::Error> {
-    let mut board = tnewt_board::from_fen!(threat_squares, "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8")?;
-    // after a2a3
-    let mut board = tnewt_board::from_fen!(threat_squares, "rnbq1k1r/pp1Pbppp/2p5/8/2B5/P7/1PP1NnPP/RNBQK2R b KQ - 1 8")?;
-    // after d8a5
-    let mut board = tnewt_board::from_fen!(threat_squares, "rnb2k1r/pp1Pbppp/2p5/q7/2B5/P7/1PP1NnPP/RNBQK2R w KQ - 1 8")?;
-
-    board.set_algorithm(Algorithm::Clone);
-
+    let mut board = tnewt_board::new!(more_magic);
     board.display();
     println!();
-    board.perft(1)?;
+    board.perft(3)?;
 
     Ok(())
 }

@@ -101,6 +101,33 @@ impl Move {
             Err(board::Error::MoveEmptySquare)
         }
     }
+
+    /// Returns which castling move this legal move is, if any, encoded by the target index.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the move originates from an empty square.
+    pub fn castling_move(
+        &self,
+        squares: &[Option<Piece>; 64],
+    ) -> Result<Option<usize>, board::Error> {
+        let start_square = squares[self.start_index];
+        if let Some(piece) = start_square {
+            if piece.kind != PieceKind::King {
+                return Ok(None);
+            }
+            let offset = self.target_index as i32 - self.start_index as i32;
+            if offset != 2 && offset != -2 {
+                return Ok(None);
+            }
+            if self.start_index != 4 && self.start_index != 60 {
+                return Ok(None);
+            }
+            Ok(Some(self.target_index))
+        } else {
+            return Err(board::Error::MoveEmptySquare);
+        }
+    }
 }
 
 impl std::fmt::Display for Move {
