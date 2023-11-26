@@ -174,11 +174,7 @@ where Self: Sized {
     ///
     /// This function will return an error if a move in `moves` attempts to move
     /// from an empty square.
-    fn display_moves(
-        &self,
-        moves: &T,
-        shown_pieces: Vec<PieceKind>,
-    ) -> Result<(), Error> {
+    fn display_moves(&self, moves: &T, shown_pieces: Vec<PieceKind>) -> Result<(), Error> {
         Move::dbg_moves(
             &moves
                 .clone()
@@ -447,13 +443,6 @@ macro_rules! from_fen {
 }
 
 #[macro_export]
-macro_rules! board_type {
-    ($implementation:ident) => {
-        implementations::$implementation::Board
-    };
-}
-
-#[macro_export]
 macro_rules! new {
     ($implementation:ident) => {
         implementations::$implementation::Board::new()
@@ -464,5 +453,48 @@ macro_rules! new {
 macro_rules! from_chars {
     ($implementation:ident, $chars:expr) => {
         implementations::$implementation::Board::from_chars($chars)
+    };
+}
+
+/// Generates `from_fen!`, `new!`, and `from_chars!`
+/// macros in current scope for `implementation`.
+///
+/// # Example:
+/// ```
+/// use tnewt_board::board;
+/// board::set_implementation!(naive);
+///
+/// // creates a Board with the `naive` implementation
+/// let mut board = from_fen!("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")?;
+/// ```
+#[macro_export]
+macro_rules! gen_initializers {
+    ($implementation:ident) => {
+        mod initialize {
+            #[allow(unused_macros)]
+            macro_rules! from_fen {
+                ($fen:expr) => {
+                    implementations::more_magic::Board::from_fen($fen)
+                };
+            }
+
+            #[allow(unused_macros)]
+            macro_rules! new {
+                () => {
+                    implementations::more_magic::Board::new()
+                };
+            }
+
+            #[allow(unused_macros)]
+            macro_rules! from_chars {
+                ($chars:expr) => {
+                    implementations::more_magic::Board::from_chars($chars)
+                };
+            }
+
+            pub(crate) use from_chars;
+            pub(crate) use from_fen;
+            pub(crate) use new;
+        }
     };
 }

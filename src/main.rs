@@ -2,7 +2,7 @@
 use color_eyre::eyre::Result;
 
 use board::Playable;
-use tnewt_board::board;
+use tnewt_board::{board, gen_initializers};
 use tnewt_board::board::Algorithm;
 use tnewt_board::implementations;
 use tnewt_board::mov::Move;
@@ -31,10 +31,9 @@ static EMPTY_POSITION: &[char; 64] = &[
 ];
 
 fn main() -> Result<(), board::Error> {
-    let mut board = tnewt_board::new!(more_magic);
-    board.display();
-    println!();
-    board.perft(3)?;
+    gen_initializers!(more_magic);
+    let mut board = initialize::new!();
+    board.perft(6)?;
 
     Ok(())
 }

@@ -209,9 +209,9 @@ impl Board {
             });
     }
 
-    fn gen_pseudo_legal_moves(&self, indices: &[usize]) -> Result<Vec<Move>, board::Error> {
+    fn gen_pseudo_legal_moves(&self) -> Result<Vec<Move>, board::Error> {
         let mut moves = Vec::with_capacity(50);
-        for &index in indices.iter() {
+        for index in 0..64 {
             let square = self.squares[index];
             if let Some(piece) = square {
                 if piece.color != self.state.turn {
@@ -314,17 +314,16 @@ impl Playable<Vec<Move>> for Board {
     /// This function does not actually mutate self, as it calls `make_move`
     /// and `unmake_move` sequentially, without mutating anywhere else.
     fn gen_legal_moves(&mut self) -> Result<Vec<Move>, board::Error> {
-        let mut moves = self.gen_pseudo_legal_moves(ALL_INDICES)?;
+        let mut moves = self.gen_pseudo_legal_moves()?;
         moves.retain(|mov| {
             let is_castling = mov.is_castling(&self.squares).unwrap();
-            let king_index: usize;
 
             match self.algorithm {
                 board::Algorithm::Clone => {
                     let mut board = self.clone();
                     board.make_move(mov).unwrap();
 
-                    king_index = board.king_index(board.state.turn.opposite()).unwrap();
+                    let king_index = board.king_index(board.state.turn.opposite()).unwrap();
                     let check_indices = match is_castling {
                         true => castling::get_squares(&mov).unwrap().check_indices.to_vec(),
                         false => vec![king_index],
@@ -337,7 +336,7 @@ impl Playable<Vec<Move>> for Board {
                 board::Algorithm::Unmove => {
                     self.make_move(mov).unwrap();
 
-                    king_index = self.king_index(self.state.turn.opposite()).unwrap();
+                    let king_index = self.king_index(self.state.turn.opposite()).unwrap();
                     let check_indices = match is_castling {
                         true => castling::get_squares(&mov).unwrap().check_indices.to_vec(),
                         false => vec![king_index],
