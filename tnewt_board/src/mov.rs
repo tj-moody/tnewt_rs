@@ -2,13 +2,13 @@ use colored::Colorize;
 
 use crate::board;
 use crate::coordinate::Coordinate;
-use crate::piece::{Piece, PieceKind};
+use crate::piece::{Piece, Kind};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Move {
     pub start_index: usize,
     pub target_index: usize,
-    pub promotion_kind: Option<PieceKind>,
+    pub promotion_kind: Option<Kind>,
 }
 
 impl From<[usize; 2]> for Move {
@@ -22,6 +22,7 @@ impl From<[usize; 2]> for Move {
 }
 
 impl Move {
+    #[must_use]
     pub fn new(start_index: usize, target_index: usize) -> Self {
         Move {
             start_index,
@@ -30,11 +31,13 @@ impl Move {
         }
     }
 
-    pub fn set_promotion_kind(mut self, promotion: PieceKind) -> Self {
+    #[must_use]
+    pub fn set_promotion_kind(mut self, promotion: Kind) -> Self {
         self.promotion_kind = Some(promotion);
         self
     }
 
+    #[must_use]
     pub fn indices(&self) -> (usize, usize) {
         (self.start_index, self.target_index)
     }
@@ -59,37 +62,43 @@ impl Move {
                     print!("{} ", '.'.to_string().black());
                 }
                 if i % 8 == 7 {
-                    println!()
+                    println!();
                 };
             }
             println!();
         }
     }
 
+    #[must_use]
     pub fn promotion_moves(&self) -> Vec<Move> {
         vec![
             Move {
-                promotion_kind: Some(PieceKind::Rook),
+                promotion_kind: Some(Kind::Rook),
                 ..*self
             },
             Move {
-                promotion_kind: Some(PieceKind::Bishop),
+                promotion_kind: Some(Kind::Bishop),
                 ..*self
             },
             Move {
-                promotion_kind: Some(PieceKind::Knight),
+                promotion_kind: Some(Kind::Knight),
                 ..*self
             },
             Move {
-                promotion_kind: Some(PieceKind::Queen),
+                promotion_kind: Some(Kind::Queen),
                 ..*self
             },
         ]
     }
 
+    /// Determines if this Move is a valid castling move.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if `self` is attempting to move from an empty square.
     pub fn is_castling(&self, squares: &[Option<Piece>; 64]) -> Result<bool, board::Error> {
         if let Some(piece) = squares[self.start_index] {
-            if piece.kind != PieceKind::King {
+            if piece.kind != Kind::King {
                 return Ok(false);
             }
             let offset = self.target_index as i32 - self.start_index as i32;
@@ -113,7 +122,7 @@ impl Move {
     ) -> Result<Option<usize>, board::Error> {
         let start_square = squares[self.start_index];
         if let Some(piece) = start_square {
-            if piece.kind != PieceKind::King {
+            if piece.kind != Kind::King {
                 return Ok(None);
             }
             let offset = self.target_index as i32 - self.start_index as i32;
@@ -125,7 +134,7 @@ impl Move {
             }
             Ok(Some(self.target_index))
         } else {
-            return Err(board::Error::MoveEmptySquare);
+            Err(board::Error::MoveEmptySquare)
         }
     }
 }
@@ -136,12 +145,11 @@ impl std::fmt::Display for Move {
         let target_index = Coordinate::from_index(self.target_index).to_string();
         let promotion_kind = match self.promotion_kind {
             Some(kind) => match kind {
-                PieceKind::King => "E",
-                PieceKind::Queen => "q",
-                PieceKind::Rook => "r",
-                PieceKind::Bishop => "b",
-                PieceKind::Knight => "n",
-                PieceKind::Pawn => "E",
+                Kind::Queen => "q",
+                Kind::Rook => "r",
+                Kind::Bishop => "b",
+                Kind::Knight => "n",
+                Kind::King | Kind::Pawn => "E",
             },
             None => "",
         };

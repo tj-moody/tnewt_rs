@@ -6,7 +6,7 @@ use std::num::ParseIntError;
 use crate::castling;
 use crate::color::Color;
 use crate::mov::Move;
-use crate::piece::{Piece, PieceKind, Square};
+use crate::piece::{Kind, Piece, Square};
 
 pub const STARTING_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
@@ -24,10 +24,11 @@ pub struct KingIndices {
 }
 
 impl KingIndices {
+    #[must_use]
     pub fn get(&self, color: Color) -> usize {
         match color {
             Color::White => self.white,
-            Color::Black => self.black
+            Color::Black => self.black,
         }
     }
 }
@@ -60,7 +61,7 @@ pub struct State {
     pub last_captured_square: Option<Square>,
     pub last_move: Option<Move>,
     pub last_ep_taken_index: Option<usize>,
-    pub king_indices: KingIndices
+    pub king_indices: KingIndices,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
@@ -74,7 +75,8 @@ pub enum Algorithm {
 //
 //      "This function will return an error if move generation fails"
 
-pub trait Playable<T: Clone + IntoIterator<Item = Move>>: Clone + Debug {
+pub trait Playable: Clone + Debug {
+    #[must_use]
     #[rustfmt::skip]
     fn new() -> Self
 where Self: Sized {
@@ -128,7 +130,7 @@ where Self: Sized {
     ///
     /// This function will return an error if `fen` is not a valid FEN string.
     ///
-    /// See: https://en.wikipedia.org/wiki/Forsyth-Edwards_Notation
+    /// See: [Forsyth-Edwards_Notation](https://en.wikipedia.org/wiki/Forsyth-Edwards_Notation)
     fn from_fen(fen: &str) -> Result<Self, Error>
     where
         Self: Sized;
@@ -143,13 +145,13 @@ where Self: Sized {
     fn algorithm(&self) -> Algorithm;
 
     /// Returns the current position and state in FEN notation.
-    /// See: https://en.wikipedia.org/wiki/Forsyth-Edwards_Notation
+    /// See: [Forsyth-Edwards_Notation](https://en.wikipedia.org/wiki/Forsyth-Edwards_Notation)
     fn to_fen(&self) -> &str {
         let mut squares = [' '; 64];
         for (i, square) in self.squares().iter().enumerate() {
             squares[i] = Piece::square_to_char(square);
         }
-        for char in squares.iter() {
+        for char in &squares {
             let _ = char;
             todo!()
         }
@@ -190,12 +192,11 @@ where Self: Sized {
     ///
     /// This function will return an error if a move in `moves` attempts to move
     /// from an empty square.
-    fn display_moves(&self, moves: &Vec<Move>, shown_pieces: Vec<PieceKind>) -> Result<(), Error> {
+    fn display_moves(&self, moves: &[Move], shown_pieces: Vec<Kind>) -> Result<(), Error> {
         Move::dbg_moves(
-            &moves
-                .clone()
-                .into_iter()
-                .map(|m| {
+            moves
+                .iter()
+                .map(|&m| {
                     if shown_pieces.is_empty() {
                         return Ok(Some(m));
                     }
@@ -211,7 +212,8 @@ where Self: Sized {
                 .collect::<Result<Vec<Option<_>>, Error>>()?
                 .into_iter()
                 .flatten()
-                .collect::<Vec<_>>(),
+                .collect::<Vec<_>>()
+                .as_slice(),
             &self.squares(),
         );
         Ok(())
@@ -245,7 +247,7 @@ where Self: Sized {
         match self.squares().iter().position(|&square| {
             square
                 == Some(Piece {
-                    kind: PieceKind::King,
+                    kind: Kind::King,
                     color,
                 })
         }) {
@@ -278,7 +280,7 @@ where Self: Sized {
         &mut self,
         start_index: usize,
         target_index: usize,
-        promotion_kind: Option<PieceKind>,
+        promotion_kind: Option<Kind>,
     ) -> Result<(), Error> {
         if let Some(kind) = promotion_kind {
             self.make_move(&Move::new(start_index, target_index).set_promotion_kind(kind))?;
@@ -352,7 +354,7 @@ where Self: Sized {
     ///
     /// This function will return an error if move generation fails.
     ///
-    /// See: https://www.chessprogramming.org/Perft
+    /// See: [Perft](https://www.chessprogramming.org/Perft)
     fn perft(&mut self, depth: i32) -> Result<u32, Error> {
         if depth <= 0 {
             return Ok(0);

@@ -2,7 +2,7 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 
 use board::{Algorithm, Playable};
-use tnewt_board::{mov::Move, *};
+use tnewt_board::*;
 
 // Setup Macros (highly ugly){{{
 macro_rules! set_implementations {
@@ -134,7 +134,7 @@ macro_rules! add_bench_to_group {
 macro_rules! create_bench_function {
     ($name:ident, |$board:ident| $body:expr) => {
         #[allow(dead_code)]
-        fn $name<T: Clone + IntoIterator<Item = Move>>($board: &mut impl Playable<T>) {
+        fn $name($board: &mut impl Playable) {
             $body
         }
     };

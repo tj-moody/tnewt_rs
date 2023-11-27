@@ -13,9 +13,15 @@ pub enum Coordinate {
     H1, H2, H3, H4, H5, H6, H7, H8,
 }
 impl Coordinate {
+    /// Generates a coordinate from a string representation.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if `coordinate`
+    /// is not one of "a1".."h8" or "A1".."H8".
     #[rustfmt::skip]
     pub fn from(coordinate: &str) -> Result<Option<Self>, Error> {
-        match coordinate {// {{{
+        match coordinate.to_ascii_lowercase().as_str() {// {{{
             "a1" => Ok(Some(Coordinate::A1)),
             "a2" => Ok(Some(Coordinate::A2)),
             "a3" => Ok(Some(Coordinate::A3)),
@@ -154,6 +160,11 @@ impl Coordinate {
             Coordinate::H1 => 63,
         }// }}}
     }
+    /// Generates a coordinate from an index 0..64.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `index` >= 64
     #[must_use]
     #[rustfmt::skip]
     pub fn from_index(index: usize) -> Self {

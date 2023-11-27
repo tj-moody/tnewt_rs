@@ -1,5 +1,6 @@
-use crate::{board, color::Color, piece::PieceKind};
+use crate::{board, color::Color, piece::Kind};
 
+#[rustfmt::skip]
 pub static SQUARES_TO_EDGE: [[i32; 8]; 64] = [// {{{
     [7, 0, 0, 7, 0, 0, 7, 0],
     [7, 0, 1, 6, 1, 0, 6, 0],
@@ -67,22 +68,32 @@ pub static SQUARES_TO_EDGE: [[i32; 8]; 64] = [// {{{
     [0, 7, 7, 0, 0, 0, 0, 7],
 ];// }}}
 
-// -9 -8 -7
-// -1  0  1
-//  7  8  9
+// . . . . . . . .
+// . . . . . . . .
+// . . .-9-8-7 . .
+// . . .-1 x 1 . .
+// . . . 7 8 9 . .
+// . . . . . . . .
+// . . . . . . . .
+// . . . . . . . .
 // 0..4 == rook, 4..8 == bishop
 pub static DIRECTION_OFFSETS: [i32; 8] = [8, -8, -1, 1, 7, -7, 9, -9];
 
-// Does not include pawns
-pub fn get_threat_pieces(direction_index: usize) -> Result<&'static [PieceKind], board::Error> {
+/// Gets the pieces that could cause a check in some direction determined by `direction_index`, an
+/// index into `DIRECTION_OFFSETS`. Does not include pawns.
+///
+/// # Errors
+///
+/// This function will return an error if `direction_index` is not valid (>= 8).
+pub fn get_threat_pieces(direction_index: usize) -> Result<&'static [Kind], board::Error> {
     match direction_index {
         0..=3 => Ok(&[
-            PieceKind::Rook,
-            PieceKind::Queen,
+            Kind::Rook,
+            Kind::Queen,
         ]),
         4..=7 => Ok(&[
-            PieceKind::Bishop,
-            PieceKind::Queen,
+            Kind::Bishop,
+            Kind::Queen,
         ]),
         _ => Err(board::Error::InvalidDirectionIndex(direction_index))
     }
@@ -90,6 +101,7 @@ pub fn get_threat_pieces(direction_index: usize) -> Result<&'static [PieceKind],
 
 pub static BISHOP_QUEEN_DIRECTION_OFFSETS: [i32; 4] = [-9, -7, 9, 7];
 pub static ROOK_QUEEN_DIRECTION_OFFSETS: [i32; 4] = [-1, 1, -8, 8];
+#[must_use]
 pub fn get_pawn_threat_offsets(color: Color) -> [i32; 2] {
     match color {
         Color::White => [-9, -7],
@@ -242,6 +254,13 @@ pub static THREAT_INDICES: [&[usize]; 64] = [// {{{
     &[53, 46, 55, 47, 39, 31, 23, 15, 7,  62, 61, 60, 59, 58, 57, 56, 54, 45, 36, 27, 18, 9,  0],
 ];// }}}
 
+/// For the `target_index` of some castling move, generate
+/// all squares that could prevent that castling move.
+///
+/// # Errors
+///
+/// This function will return an error if `target_index`
+/// is not the target index of a valid castling move.
 pub fn get_castling_threat_indices(
     target_index: usize,
 ) -> Result<&'static [usize], board::Error> {

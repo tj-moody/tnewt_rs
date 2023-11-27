@@ -7,6 +7,11 @@ pub enum Color {
 }
 
 impl Color {
+    /// Generate color from fen representation.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if `turn` is not "w" or "b".
     pub fn from(turn: &str) -> Result<Self, board::Error> {
         match turn {
             "w" => Ok(Color::White),

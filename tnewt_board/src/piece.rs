@@ -1,8 +1,8 @@
-use crate::{board, color::*};
+use crate::{board, color::Color};
 use colored::{ColoredString, Colorize};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum PieceKind {
+pub enum Kind {
     King,
     Queen,
     Rook,
@@ -11,28 +11,33 @@ pub enum PieceKind {
     Pawn,
 }
 
-impl PieceKind {
+impl Kind {
     #[must_use]
     #[rustfmt::skip]
     pub fn to_char(&self) -> char {
         match self {
-            PieceKind::King   => 'k',
-            PieceKind::Queen  => 'q',
-            PieceKind::Rook   => 'r',
-            PieceKind::Bishop => 'b',
-            PieceKind::Knight => 'n',
-            PieceKind::Pawn   => 'p',
+            Kind::King   => 'k',
+            Kind::Queen  => 'q',
+            Kind::Rook   => 'r',
+            Kind::Bishop => 'b',
+            Kind::Knight => 'n',
+            Kind::Pawn   => 'p',
         }
     }
 
+    /// Generate the appropriate piece Kind from `char`.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if `char` is not one of 'k', 'q', 'r', 'b', 'n', or 'p'.
     pub fn from(char: char) -> Result<Self, board::Error> {
         match char {
-            'k' => Ok(PieceKind::King),
-            'q' => Ok(PieceKind::Queen),
-            'r' => Ok(PieceKind::Rook),
-            'b' => Ok(PieceKind::Bishop),
-            'n' => Ok(PieceKind::Knight),
-            'p' => Ok(PieceKind::Pawn),
+            'k' => Ok(Kind::King),
+            'q' => Ok(Kind::Queen),
+            'r' => Ok(Kind::Rook),
+            'b' => Ok(Kind::Bishop),
+            'n' => Ok(Kind::Knight),
+            'p' => Ok(Kind::Pawn),
             _ => Err(board::Error::InvalidPieceChar(char)),
         }
     }
@@ -40,7 +45,7 @@ impl PieceKind {
 
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
 pub struct Piece {
-    pub kind: PieceKind,
+    pub kind: Kind,
     pub color: Color,
 }
 
@@ -62,7 +67,7 @@ impl Piece {
         let string = Piece::square_to_char(square).to_string();
         match square {
             Some(piece) => match piece.kind {
-                PieceKind::King => match piece.color {
+                Kind::King => match piece.color {
                     Color::White => string.bright_yellow().bold(),
                     Color::Black => string.bright_blue().bold(),
                 },
@@ -75,6 +80,7 @@ impl Piece {
         }
     }
 
+    #[must_use]
     pub fn is_same_color(square1: Square, square2: Square) -> bool {
         match square1 {
             None => false,

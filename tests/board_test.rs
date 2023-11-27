@@ -31,19 +31,19 @@ mod tests {
     #[test]
     fn is_same_color() {
         let white_square1 = Some(Piece {
-            kind: PieceKind::Queen,
+            kind: Kind::Queen,
             color: Color::White,
         });
         let white_square2 = Some(Piece {
-            kind: PieceKind::Pawn,
+            kind: Kind::Pawn,
             color: Color::White,
         });
         let black_square1 = Some(Piece {
-            kind: PieceKind::King,
+            kind: Kind::King,
             color: Color::Black,
         });
         let black_square2 = Some(Piece {
-            kind: PieceKind::Rook,
+            kind: Kind::Rook,
             color: Color::Black,
         });
         let empty_square = None;

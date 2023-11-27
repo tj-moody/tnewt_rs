@@ -29,6 +29,7 @@ impl Rights {
             Rights::Both      => "kq",
         }
     }
+    #[must_use]
     pub fn gen_moves(&self, color: &Color) -> Vec<Move> {
         use Rights as R;
         if *self == R::Neither { return vec![]; }
@@ -103,6 +104,7 @@ impl State {
             self.black.to_str().to_ascii_lowercase().as_str()
         )
     }
+    #[must_use]
     pub fn get_moves(&self, color: &Color) -> Vec<Move> {
         match color {
             Color::White => self.white.gen_moves(color),
@@ -117,7 +119,7 @@ impl State {
     }
 }
 
-pub struct CastlingSquares<'a> {
+pub struct Squares<'a> {
     pub empty_indices: &'a [usize],
     pub check_indices: &'a [usize],
     pub king_start_index: usize,
@@ -125,9 +127,14 @@ pub struct CastlingSquares<'a> {
     pub rook_target_index: usize,
 }
 
-pub fn get_squares(mov: &Move) -> Result<CastlingSquares, board::Error> {
+/// Generate all relevant squares based on a castling move `mov`.
+///
+/// # Errors
+///
+/// This function will return an error if `mov` is not a valid castling move.
+pub fn get_squares(mov: &Move) -> Result<Squares, board::Error> {
     if mov.indices() == (60, 62) {
-        Ok(CastlingSquares {
+        Ok(Squares {
             empty_indices: &[61, 62],
             check_indices: &[60, 61, 62],
             king_start_index: 60,
@@ -135,7 +142,7 @@ pub fn get_squares(mov: &Move) -> Result<CastlingSquares, board::Error> {
             rook_target_index: 61,
         })
     } else if mov.indices() == (4, 6) {
-        Ok(CastlingSquares {
+        Ok(Squares {
             empty_indices: &[5, 6],
             check_indices: &[4, 5, 6],
             king_start_index: 4,
@@ -143,7 +150,7 @@ pub fn get_squares(mov: &Move) -> Result<CastlingSquares, board::Error> {
             rook_target_index: 5,
         })
     } else if mov.indices() == (60, 58) {
-        Ok(CastlingSquares {
+        Ok(Squares {
             empty_indices: &[57, 58, 59],
             check_indices: &[58, 59, 60],
             king_start_index: 60,
@@ -151,7 +158,7 @@ pub fn get_squares(mov: &Move) -> Result<CastlingSquares, board::Error> {
             rook_target_index: 59,
         })
     } else if mov.indices() == (4, 2) {
-        Ok(CastlingSquares {
+        Ok(Squares {
             empty_indices: &[1, 2, 3],
             check_indices: &[2, 3, 4],
             king_start_index: 4,

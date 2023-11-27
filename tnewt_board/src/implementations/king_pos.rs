@@ -9,11 +9,15 @@ use crate::{castling, color, coordinate, mov, piece};
 use color::Color;
 use coordinate::Coordinate;
 use mov::Move;
-use piece::{Piece, PieceKind};
+use piece::{Piece, Kind};
 
-// use crate::board::*;
-use crate::magic_numbers::*;
-
+use crate::magic_numbers::{
+    DIRECTION_OFFSETS,
+    KNIGHT_THREAT_INDICES,
+    SQUARES_TO_EDGE,
+    get_pawn_threat_offsets,
+    get_threat_pieces,
+};
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct Board {
@@ -33,7 +37,7 @@ impl Board {
         moves: &mut Vec<Move>,
         start_index: usize,
         piece: Piece,
-    ) -> Result<(), board::Error> {
+    ) {
         let start_square = self.squares[start_index];
 
         let mut start_dir_index = 0;
@@ -41,9 +45,9 @@ impl Board {
         let mut branch_length = 8;
 
         match piece.kind {
-            PieceKind::Bishop => start_dir_index = 4,
-            PieceKind::Rook => end_dir_index = 4,
-            PieceKind::King => branch_length = 1,
+            Kind::Bishop => start_dir_index = 4,
+            Kind::Rook => end_dir_index = 4,
+            Kind::King => branch_length = 1,
             _ => (),
         }
 
@@ -70,8 +74,6 @@ impl Board {
                 }
             }
         }
-
-        Ok(())
     }
 
     fn knight_gen_moves(&self, moves: &mut Vec<Move>, start_index: usize) {
@@ -186,7 +188,7 @@ impl Board {
                 }
                 match self.squares[castling_squares.king_start_index] {
                     Some(piece) => match piece.kind {
-                        PieceKind::King => {
+                        Kind::King => {
                             if piece.color != self.state.turn {
                                 return;
                             }
@@ -197,7 +199,7 @@ impl Board {
                 };
                 match self.squares[castling_squares.rook_start_index] {
                     Some(piece) => match piece.kind {
-                        PieceKind::Rook => {
+                        Kind::Rook => {
                             if piece.color != self.state.turn {
                                 return;
                             }
@@ -219,11 +221,11 @@ impl Board {
                     continue;
                 }
                 match piece.kind {
-                    PieceKind::Bishop | PieceKind::Rook | PieceKind::Queen | PieceKind::King => {
-                        self.slider_gen_moves(&mut moves, index, piece)?
+                    Kind::Bishop | Kind::Rook | Kind::Queen | Kind::King => {
+                        self.slider_gen_moves(&mut moves, index, piece)
                     }
-                    PieceKind::Knight => self.knight_gen_moves(&mut moves, index),
-                    PieceKind::Pawn => self.pawn_gen_moves(&mut moves, index)?,
+                    Kind::Knight => self.knight_gen_moves(&mut moves, index),
+                    Kind::Pawn => self.pawn_gen_moves(&mut moves, index)?,
                 };
             }
         }
@@ -237,7 +239,7 @@ impl Board {
         for &start_index in indices {
             for &knight_index in KNIGHT_THREAT_INDICES[start_index] {
                 if let Some(piece) = self.squares[knight_index] {
-                    if piece.kind == PieceKind::Knight && piece.color != king_color {
+                    if piece.kind == Kind::Knight && piece.color != king_color {
                         return Ok(true);
                     }
                 }
@@ -260,12 +262,12 @@ impl Board {
                                 return Ok(true);
                             }
                             if n == 0 {
-                                if piece.kind == PieceKind::Pawn {
-                                    if pawn_threat_offsets.contains(&offset) {
-                                        return Ok(true);
-                                    }
+                                if piece.kind == Kind::Pawn
+                                    && pawn_threat_offsets.contains(offset)
+                                {
+                                    return Ok(true);
                                 }
-                                if piece.kind == PieceKind::King {
+                                if piece.kind == Kind::King {
                                     return Ok(true);
                                 }
                             }
@@ -288,7 +290,7 @@ impl Board {
         let mut black: usize = 64;
         for (i, square) in squares.iter().enumerate() {
             if let Some(piece) = square {
-                if piece.kind == PieceKind::King {
+                if piece.kind == Kind::King {
                     match piece.color {
                         Color::White => white = i,
                         Color::Black => black = i,
@@ -297,16 +299,13 @@ impl Board {
             }
         }
         if white == 64 || black == 64 {
-            return Err(board::Error::NoKing)
+            return Err(board::Error::NoKing);
         }
-        Ok(KingIndices {
-            white,
-            black,
-        })
+        Ok(KingIndices { white, black })
     }
 }
 
-impl Playable<Vec<Move>> for Board {
+impl Playable for Board {
     /// This function does not actually mutate self, as it calls `make_move`
     /// and `unmake_move` sequentially, without mutating anywhere else.
     fn gen_legal_moves(&mut self) -> Result<Vec<Move>, board::Error> {
@@ -320,9 +319,10 @@ impl Playable<Vec<Move>> for Board {
                     board.make_move(mov).unwrap();
 
                     let king_index = board.state.king_indices.get(board.state.turn.opposite());
-                    let check_indices = match is_castling {
-                        true => castling::get_squares(&mov).unwrap().check_indices.to_vec(),
-                        false => vec![king_index],
+                    let check_indices = if is_castling {
+                        castling::get_squares(mov).unwrap().check_indices.to_vec()
+                    } else {
+                        vec![king_index]
                     };
 
                     !board
@@ -333,9 +333,10 @@ impl Playable<Vec<Move>> for Board {
                     self.make_move(mov).unwrap();
 
                     let king_index = self.state.king_indices.get(self.state.turn.opposite());
-                    let check_indices = match is_castling {
-                        true => castling::get_squares(&mov).unwrap().check_indices.to_vec(),
-                        false => vec![king_index],
+                    let check_indices = if is_castling {
+                        castling::get_squares(mov).unwrap().check_indices.to_vec()
+                    } else {
+                        vec![king_index]
                     };
 
                     let is_attacked = self
@@ -353,12 +354,12 @@ impl Playable<Vec<Move>> for Board {
         let mut squares: [Option<Piece>; 64] = [None; 64];
         for (i, piece_char) in chars.iter().enumerate() {
             let piece = match piece_char.to_ascii_lowercase() {
-                'k' => Some(PieceKind::King),
-                'q' => Some(PieceKind::Queen),
-                'r' => Some(PieceKind::Rook),
-                'b' => Some(PieceKind::Bishop),
-                'n' => Some(PieceKind::Knight),
-                'p' => Some(PieceKind::Pawn),
+                'k' => Some(Kind::King),
+                'q' => Some(Kind::Queen),
+                'r' => Some(Kind::Rook),
+                'b' => Some(Kind::Bishop),
+                'n' => Some(Kind::Knight),
+                'p' => Some(Kind::Pawn),
                 ' ' => None,
                 _ => return Err(board::Error::InvalidPieceChar(*piece_char)),
             };
@@ -449,13 +450,10 @@ impl Playable<Vec<Move>> for Board {
     }
 
     fn make_move(&mut self, mov: &Move) -> Result<(), board::Error> {
-        let moving_piece = match self.squares[mov.start_index] {
-            Some(piece) => piece,
-            None => return Err(board::Error::MoveEmptySquare),
+        let Some(moving_piece) = self.squares[mov.start_index] else {
+            return Err(board::Error::MoveEmptySquare);
         };
         let captured_square = self.squares[mov.target_index];
-
-        debug_assert_eq!(moving_piece.color, self.state.turn);
 
         if self.algorithm == board::Algorithm::Unmove {
             self.state_history.push(self.state);
@@ -468,9 +466,8 @@ impl Playable<Vec<Move>> for Board {
                 if mov.target_index != index {
                     return None;
                 }
-                debug_assert_eq!(self.squares[mov.target_index], None);
 
-                if moving_piece.kind != PieceKind::Pawn {
+                if moving_piece.kind != Kind::Pawn {
                     return None;
                 }
                 return Some(match color {
@@ -480,17 +477,6 @@ impl Playable<Vec<Move>> for Board {
             }
             None
         })();
-
-        // DEBUG_ONLY:
-        if let Some(index) = ep_taken_index {
-            debug_assert_eq!(
-                self.squares[index],
-                Some(Piece {
-                    kind: PieceKind::Pawn,
-                    color: self.state.turn.opposite()
-                })
-            );
-        }
 
         if self.algorithm == board::Algorithm::Unmove {
             self.state.last_ep_taken_index = ep_taken_index;
@@ -502,8 +488,8 @@ impl Playable<Vec<Move>> for Board {
         match captured_square {
             Some(piece) => {
                 match piece.kind {
-                    PieceKind::King => {}
-                    PieceKind::Rook => {
+                    Kind::King => {}
+                    Kind::Rook => {
                         match mov.target_index {
                             0 | 56 => self
                                 .state
@@ -529,7 +515,7 @@ impl Playable<Vec<Move>> for Board {
 
         let mut is_castling = false;
         match moving_piece.kind {
-            PieceKind::King => {
+            Kind::King => {
                 self.state
                     .castling_state
                     .revoke(castling::Rights::Both, &self.state.turn);
@@ -539,7 +525,7 @@ impl Playable<Vec<Move>> for Board {
                     Color::Black => self.state.king_indices.black = mov.target_index,
                 }
             }
-            PieceKind::Rook => match mov.start_index {
+            Kind::Rook => match mov.start_index {
                 0 | 56 => self
                     .state
                     .castling_state
@@ -550,7 +536,7 @@ impl Playable<Vec<Move>> for Board {
                     .revoke(castling::Rights::Kingside, &color),
                 _ => (),
             },
-            PieceKind::Pawn => {
+            Kind::Pawn => {
                 self.state.halfmove_clock = 0;
                 let offset: isize = mov.target_index as isize - mov.start_index as isize;
                 self.state.ep_index = match offset {
@@ -578,13 +564,12 @@ impl Playable<Vec<Move>> for Board {
         if is_castling {
             let castling_squares = castling::get_squares(mov)?;
             self.squares[castling_squares.rook_target_index] = Some(Piece {
-                kind: PieceKind::Rook,
+                kind: Kind::Rook,
                 color,
             });
             self.squares[castling_squares.rook_start_index] = None;
         }
         if let Some(kind) = mov.promotion_kind {
-            debug_assert_eq!(moving_piece.kind, PieceKind::Pawn);
             self.squares[mov.target_index] = Some(Piece { kind, color });
             self.squares[mov.start_index] = None;
         }
@@ -598,13 +583,11 @@ impl Playable<Vec<Move>> for Board {
     }
 
     fn unmake_move(&mut self) -> Result<(), board::Error> {
-        let last_captured_square = match self.state.last_captured_square {
-            Some(square) => square,
-            None => return Err(board::Error::UndoFromFirstMove),
+        let Some(last_captured_square) = self.state.last_captured_square else {
+            return Err(board::Error::UndoFromFirstMove);
         };
-        let last_move = match self.state.last_move {
-            Some(mov) => mov,
-            None => return Err(board::Error::UndoFromFirstMove),
+        let Some(last_move) = self.state.last_move else {
+            return Err(board::Error::UndoFromFirstMove);
         };
         let last_ep_taken_index = self.state.last_ep_taken_index;
 
@@ -622,7 +605,7 @@ impl Playable<Vec<Move>> for Board {
 
         if let Some(index) = last_ep_taken_index {
             self.squares[index] = Some(Piece {
-                kind: PieceKind::Pawn,
+                kind: Kind::Pawn,
                 color: self.state.turn.opposite(),
             });
         }
@@ -632,7 +615,7 @@ impl Playable<Vec<Move>> for Board {
         self.squares[last_move.target_index] = last_captured_square;
         if last_move.promotion_kind.is_some() {
             self.squares[last_move.start_index] = Some(Piece {
-                kind: PieceKind::Pawn,
+                kind: Kind::Pawn,
                 color,
             });
         } else {
@@ -650,7 +633,7 @@ impl Playable<Vec<Move>> for Board {
                 }
             };
             self.squares[castling_squares.rook_start_index] = Some(Piece {
-                kind: PieceKind::Rook,
+                kind: Kind::Rook,
                 color,
             });
             self.squares[castling_squares.rook_target_index] = None;
@@ -687,15 +670,12 @@ impl Playable<Vec<Move>> for Board {
     }
 
     fn play_legal_move(&mut self, mov: Option<&Move>) -> Result<(), board::Error> {
-        match mov {
-            Some(mov) => self.make_move(mov)?,
-            None => {
-                let king_index = self.state.king_indices.get(self.state.turn);
-                if self.is_attacked(&[king_index], self.state.turn)? {
-                    self.state.game_state = board::GameState::Victory(self.state.turn.opposite());
-                } else {
-                    self.state.game_state = board::GameState::Draw;
-                }
+        if let Some(mov) = mov { self.make_move(mov)? } else {
+            let king_index = self.state.king_indices.get(self.state.turn);
+            if self.is_attacked(&[king_index], self.state.turn)? {
+                self.state.game_state = board::GameState::Victory(self.state.turn.opposite());
+            } else {
+                self.state.game_state = board::GameState::Draw;
             }
         };
         Ok(())
