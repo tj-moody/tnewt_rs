@@ -17,6 +17,21 @@ pub enum GameState {
     Victory(Color),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+pub struct KingIndices {
+    pub white: usize,
+    pub black: usize,
+}
+
+impl KingIndices {
+    pub fn get(&self, color: Color) -> usize {
+        match color {
+            Color::White => self.white,
+            Color::Black => self.black
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Error {
     InvalidCoordinate(String),
@@ -45,6 +60,7 @@ pub struct State {
     pub last_captured_square: Option<Square>,
     pub last_move: Option<Move>,
     pub last_ep_taken_index: Option<usize>,
+    pub king_indices: KingIndices
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
@@ -147,7 +163,7 @@ where Self: Sized {
     /// This function will return an error if move generation fails
     /// (should never happen for bug-free code, eventually will be
     /// able to be unwrapped directly)
-    fn gen_legal_moves(&mut self) -> Result<T, Error>;
+    fn gen_legal_moves(&mut self) -> Result<Vec<Move>, Error>;
 
     /// Prints the current position in a human-readable format.
     fn display(&self) {
@@ -174,7 +190,7 @@ where Self: Sized {
     ///
     /// This function will return an error if a move in `moves` attempts to move
     /// from an empty square.
-    fn display_moves(&self, moves: &T, shown_pieces: Vec<PieceKind>) -> Result<(), Error> {
+    fn display_moves(&self, moves: &Vec<Move>, shown_pieces: Vec<PieceKind>) -> Result<(), Error> {
         Move::dbg_moves(
             &moves
                 .clone()
@@ -406,14 +422,14 @@ where Self: Sized {
     /// This function will return an error if move generation fails
     // fn play_random_game(&mut self, move_limit: u32) -> Result<GameState, Error>;
     fn play_random_game(&mut self, move_limit: u32) -> Result<GameState, Error> {
-        // use rand::{seq::SliceRandom, thread_rng};
+        use rand::{seq::SliceRandom, thread_rng};
         for _ in 0..move_limit {
             let moves = self.gen_legal_moves()?;
 
-            // let mut rng = thread_rng();
-            // let mov = moves.choose(&mut rng);
-            let mov = moves.into_iter().next();
-            self.play_legal_move(mov.as_ref())?;
+            let mut rng = thread_rng();
+            let mov = moves.choose(&mut rng);
+            // let mov = moves.into_iter().next();
+            self.play_legal_move(mov)?;
             if self.state().game_state != GameState::Playing {
                 break;
             }
@@ -474,21 +490,21 @@ macro_rules! gen_initializers {
             #[allow(unused_macros)]
             macro_rules! from_fen {
                 ($fen:expr) => {
-                    implementations::more_magic::Board::from_fen($fen)
+                    implementations::$implementation::Board::from_fen($fen)
                 };
             }
 
             #[allow(unused_macros)]
             macro_rules! new {
                 () => {
-                    implementations::more_magic::Board::new()
+                    implementations::$implementation::Board::new()
                 };
             }
 
             #[allow(unused_macros)]
             macro_rules! from_chars {
                 ($chars:expr) => {
-                    implementations::more_magic::Board::from_chars($chars)
+                    implementations::$implementation::Board::from_chars($chars)
                 };
             }
 

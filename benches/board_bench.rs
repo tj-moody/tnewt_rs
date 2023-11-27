@@ -153,9 +153,9 @@ fn criterion_benchmark(c: &mut Criterion) {
         };
     } // }}}
 
-    const BENCH_ALGORITHM: BenchAlgorithms = BenchAlgorithms::Clone;
-    set_implementations!(more_magic);
-    set_implementations!("More Magic");
+    const BENCH_ALGORITHM: BenchAlgorithms = BenchAlgorithms::Both;
+    set_implementations!(king_pos);
+    set_implementations!("King Pos");
 
     create_bench_function!(new_board_moves, |board| {
         board.num_legal_moves().unwrap();
@@ -172,7 +172,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         }
     });
 
-    add_benches![random_game, new_board_moves];
+    // add_benches![random_game, new_board_moves];
     add_benches![depth_pos_count];
 }
 
