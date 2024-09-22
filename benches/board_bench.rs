@@ -36,8 +36,8 @@ macro_rules! _add_bench {
 
         if BENCH_ALGORITHM == BenchAlgorithms::Both || BENCH_ALGORITHM == BenchAlgorithms::Unmove {
             let mut clone_group = $c.benchmark_group(stringify!($func).to_string() + " (Unmove)");
-            add_bench_to_group!(clone_group, $func, Algorithm::Clone, old!(), old!(name));
-            add_bench_to_group!(clone_group, $func, Algorithm::Clone, new!(), new!(name));
+            add_bench_to_group!(clone_group, $func, Algorithm::Unmove, old!(), old!(name));
+            add_bench_to_group!(clone_group, $func, Algorithm::Unmove, new!(), new!(name));
             clone_group.finish();
         }
     };
@@ -66,6 +66,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     } // }}}
 
     const BENCH_ALGORITHM: BenchAlgorithms = BenchAlgorithms::Both;
+
     create_bench_function!(new_board_moves, |board| {
         board.num_legal_moves().unwrap();
     });
@@ -77,7 +78,7 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     create_bench_function!(depth_pos_count, |board| {
         for i in 0..5 {
-            board.depth_num_positions(i).unwrap();
+            board.depth_num_positions(i);
         }
     });
 

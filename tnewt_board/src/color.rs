@@ -1,6 +1,7 @@
 use crate::board;
 
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
+#[repr(C)]
 pub enum Color {
     White,
     Black,

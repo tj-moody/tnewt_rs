@@ -6,19 +6,15 @@ use crate::{castling, color, coordinate, mov, piece};
 use color::Color;
 use coordinate::Coordinate;
 use mov::Move;
-use piece::{Piece, Kind, Square};
+use piece::{Kind, Piece, Square};
 
 use crate::magic_numbers::{
-    DIRECTION_OFFSETS,
-    KNIGHT_THREAT_INDICES,
+    get_pawn_threat_offsets, get_threat_pieces, DIRECTION_OFFSETS, KNIGHT_THREAT_INDICES,
     SQUARES_TO_EDGE,
-    get_pawn_threat_offsets,
-    get_threat_pieces,
 };
 
 use std::fmt::Debug;
 use std::num::ParseIntError;
-
 
 pub const STARTING_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 pub const STARTING_POSITION: &[char; 64] = &[
@@ -42,7 +38,6 @@ pub const EMPTY_POSITION: &[char; 64] = &[
     ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', // 56 57 58 59 60 61 62 63
 ];
 
-
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
 pub enum GameState {
     Playing,
@@ -51,7 +46,7 @@ pub enum GameState {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
-pub struct KingIndices {
+struct KingIndices {
     pub white: usize,
     pub black: usize,
 }
@@ -103,7 +98,6 @@ pub enum Algorithm {
     Unmove,
 }
 
-
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct Board {
     pub squares: [Option<Piece>; 64],
@@ -115,12 +109,7 @@ pub struct Board {
 }
 
 impl Board {
-    fn slider_gen_moves(
-        &self,
-        moves: &mut Vec<Move>,
-        start_index: usize,
-        piece: Piece,
-    ) {
+    fn slider_gen_moves(&self, moves: &mut Vec<Move>, start_index: usize, piece: Piece) {
         let start_square = self.squares[start_index];
 
         let mut start_dir_index = 0;
@@ -169,20 +158,13 @@ impl Board {
         }
     }
 
-    fn pawn_gen_moves(
-        &self,
-        moves: &mut Vec<Move>,
-        start_index: usize,
-    ) -> Result<(), Error> {
+    fn pawn_gen_moves(&self, moves: &mut Vec<Move>, start_index: usize) {
         let start_square = self.squares[start_index];
 
         let rank = start_index / 8 % 8;
         let file = start_index % 8;
 
-        let color = match start_square {
-            Some(piece) => piece.color,
-            None => return Err(Error::MoveEmptySquare),
-        };
+        let color = start_square.expect("Moved from empty square").color;
 
         let offsets = match color {
             Color::White => [-8, -16, -9, -7],
@@ -197,7 +179,7 @@ impl Board {
             Color::Black => 1,
         };
         if rank == invalid_ranks[0] {
-            return Ok(());
+            return;
         }
 
         if rank != invalid_ranks[0] {
@@ -253,7 +235,6 @@ impl Board {
                 }
             }
         }
-        Ok(())
     }
 
     fn gen_castling_moves(&self, moves: &mut Vec<Move>) {
@@ -295,7 +276,7 @@ impl Board {
             });
     }
 
-    fn gen_pseudo_legal_moves(&self) -> Result<Vec<Move>, Error> {
+    fn gen_pseudo_legal_moves(&self) -> Vec<Move> {
         let mut moves = Vec::with_capacity(50);
         for index in 0..64 {
             let square = self.squares[index];
@@ -308,29 +289,30 @@ impl Board {
                         self.slider_gen_moves(&mut moves, index, piece)
                     }
                     Kind::Knight => self.knight_gen_moves(&mut moves, index),
-                    Kind::Pawn => self.pawn_gen_moves(&mut moves, index)?,
+                    Kind::Pawn => self.pawn_gen_moves(&mut moves, index),
                 };
             }
         }
         self.gen_castling_moves(&mut moves);
 
-        Ok(moves)
+        moves
     }
 
     /// Only checks if the color whose turn it is has their piece at `index` being attacked
-    fn is_attacked(&mut self, indices: &[usize], king_color: Color) -> Result<bool, Error> {
+    fn is_attacked(&mut self, indices: &[usize], king_color: Color) -> bool {
         for &start_index in indices {
             for &knight_index in KNIGHT_THREAT_INDICES[start_index] {
                 if let Some(piece) = self.squares[knight_index] {
                     if piece.kind == Kind::Knight && piece.color != king_color {
-                        return Ok(true);
+                        return true;
                     }
                 }
             }
 
             let pawn_threat_offsets = get_pawn_threat_offsets(king_color);
             for (direction_index, offset) in DIRECTION_OFFSETS.iter().enumerate() {
-                let threat_pieces = get_threat_pieces(direction_index)?;
+                let threat_pieces = get_threat_pieces(direction_index)
+                    .expect("DIRECTION_OFFSETS yields valid direction offsets");
                 for n in 0..SQUARES_TO_EDGE[start_index][direction_index] {
                     let target_index: usize = (start_index as i32 + (offset * (n + 1))) as usize;
 
@@ -342,16 +324,15 @@ impl Board {
                                 break;
                             }
                             if threat_pieces.contains(&piece.kind) {
-                                return Ok(true);
+                                return true;
                             }
                             if n == 0 {
-                                if piece.kind == Kind::Pawn
-                                    && pawn_threat_offsets.contains(offset)
+                                if piece.kind == Kind::Pawn && pawn_threat_offsets.contains(offset)
                                 {
-                                    return Ok(true);
+                                    return true;
                                 }
                                 if piece.kind == Kind::King {
-                                    return Ok(true);
+                                    return true;
                                 }
                             }
                             break;
@@ -361,11 +342,7 @@ impl Board {
                 }
             }
         }
-        if true {
-            return Ok(false);
-        }
-
-        Ok(false)
+        false
     }
 
     fn gen_king_indices(squares: &[Option<Piece>; 64]) -> Result<KingIndices, Error> {
@@ -388,21 +365,15 @@ impl Board {
     }
 
     /// Generates a Vec of all legal moves in the current position.
-    ///
-    /// # Errors
-    ///
-    /// This function will return an error if move generation fails
-    /// (should never happen for bug-free code, eventually will be
-    /// able to be unwrapped directly)
-    pub fn gen_legal_moves(&mut self) -> Result<Vec<Move>, Error> {
-        let mut moves = self.gen_pseudo_legal_moves()?;
+    pub fn gen_legal_moves(&mut self) -> Vec<Move> {
+        let mut moves = self.gen_pseudo_legal_moves();
         moves.retain(|mov| {
             let is_castling = mov.is_castling(&self.squares).unwrap();
 
             match self.algorithm {
                 Algorithm::Clone => {
                     let mut board = self.clone();
-                    board.make_move(mov).unwrap();
+                    board.make_move(mov);
 
                     let king_index = board.state.king_indices.get(board.state.turn.opposite());
                     let check_indices = if is_castling {
@@ -411,12 +382,10 @@ impl Board {
                         vec![king_index]
                     };
 
-                    !board
-                        .is_attacked(&check_indices, board.state.turn.opposite())
-                        .unwrap()
+                    !board.is_attacked(&check_indices, board.state.turn.opposite())
                 }
                 Algorithm::Unmove => {
-                    self.make_move(mov).unwrap();
+                    self.make_move(mov);
 
                     let king_index = self.state.king_indices.get(self.state.turn.opposite());
                     let check_indices = if is_castling {
@@ -425,17 +394,38 @@ impl Board {
                         vec![king_index]
                     };
 
-                    let is_attacked = self
-                        .is_attacked(&check_indices, self.state.turn.opposite())
-                        .unwrap();
-                    self.unmake_move().unwrap();
+                    let is_attacked = self.is_attacked(&check_indices, self.state.turn.opposite());
+                    self.unmake_move();
                     !is_attacked
                 }
             }
         });
-        Ok(moves)
+        moves
     }
 
+    /// Returns a playable board at the first move, except with position specified by [`chars`.]
+    ///
+    /// Each element in [`chars`] may be one of ('k', 'q', 'r', 'b', 'n', 'p', ' '),
+    /// with uppercase denoting white, lowercase denoting black, and ' ' denoting empty.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if [`chars`] contains an invalid character.
+    ///
+    /// # Examples
+    /// ```
+    /// use tnewt_board::board::Board;
+    /// let mut board = Board::from_chars(&[
+    ///     'r','n','b','q','k','b','n','r',
+    ///     'p','p','p','p','p','p','p','p',
+    ///     ' ',' ',' ',' ',' ',' ',' ',' ',
+    ///     ' ',' ',' ',' ',' ',' ',' ',' ',
+    ///     ' ',' ',' ',' ',' ',' ',' ',' ',
+    ///     ' ',' ',' ',' ',' ',' ',' ',' ',
+    ///     'P','P','P','P','P','P','P','P',
+    ///     'R','N','B','Q','K','B','N','R',
+    /// ]);
+    /// ```
     pub fn from_chars(chars: &[char; 64]) -> Result<Self, Error> {
         let mut squares: [Option<Piece>; 64] = [None; 64];
         for (i, piece_char) in chars.iter().enumerate() {
@@ -545,7 +535,7 @@ impl Board {
     }
 
     /// Change the board's current turn.
-    pub fn change_turn(&mut self) {
+    fn change_turn(&mut self) {
         self.state.turn = self.state.turn.opposite();
     }
 
@@ -556,10 +546,8 @@ impl Board {
     ///
     /// This function will return an error if [`mov`] attempts to move from an empty square
     /// or is illegal.
-    pub fn make_move(&mut self, mov: &Move) -> Result<(), Error> {
-        let Some(moving_piece) = self.squares[mov.start_index] else {
-            return Err(Error::MoveEmptySquare);
-        };
+    pub fn make_move(&mut self, mov: &Move) {
+        let moving_piece = self.squares[mov.start_index].expect("Move empty square");
         let captured_square = self.squares[mov.target_index];
 
         if self.algorithm == Algorithm::Unmove {
@@ -626,7 +614,9 @@ impl Board {
                 self.state
                     .castling_state
                     .revoke(castling::Rights::Both, &self.state.turn);
-                is_castling = mov.is_castling(&self.squares)?;
+                is_castling = mov
+                    .is_castling(&self.squares)
+                    .expect("Square containing king is non-empty");
                 match self.state.turn {
                     Color::White => self.state.king_indices.white = mov.target_index,
                     Color::Black => self.state.king_indices.black = mov.target_index,
@@ -669,7 +659,8 @@ impl Board {
         self.squares[mov.start_index] = None;
 
         if is_castling {
-            let castling_squares = castling::get_squares(mov)?;
+            let castling_squares =
+                castling::get_squares(mov).expect("`is_castling` guarantees moves is castling");
             self.squares[castling_squares.rook_target_index] = Some(Piece {
                 kind: Kind::Rook,
                 color,
@@ -685,8 +676,6 @@ impl Board {
             self.state.fullmove_count += 1;
         }
         self.change_turn();
-
-        Ok(())
     }
 
     /// Undo the board's most recent move.
@@ -694,20 +683,15 @@ impl Board {
     /// # Errors
     ///
     /// This function will return an error if the board is on its first move.
-    pub fn unmake_move(&mut self) -> Result<(), Error> {
-        let Some(last_captured_square) = self.state.last_captured_square else {
-            return Err(Error::UndoFromFirstMove);
-        };
-        let Some(last_move) = self.state.last_move else {
-            return Err(Error::UndoFromFirstMove);
-        };
+    pub fn unmake_move(&mut self) {
+        let last_captured_square = self
+            .state
+            .last_captured_square
+            .expect("Undo from first move");
+        let last_move = self.state.last_move.expect("Undo from first move");
         let last_ep_taken_index = self.state.last_ep_taken_index;
 
-        self.state = match self.state_history.pop() {
-            Some(state) => state,
-            None => return Err(Error::UndoFromFirstMove),
-        };
-
+        self.state = self.state_history.pop().expect("Undo from first move");
         // Color of the player who made the move being undone
         let color = self.state.turn;
 
@@ -736,22 +720,18 @@ impl Board {
 
         // Can use `is_castling` method because moving piece (king) has
         // already been reset
-        if last_move.is_castling(&self.squares)? {
-            let castling_squares = match castling::get_squares(&last_move) {
-                Ok(v) => v,
-                Err(e) => {
-                    self.display();
-                    return Err(e);
-                }
-            };
+        if last_move
+            .is_castling(&self.squares)
+            .expect("Last move must be a valid move")
+        {
+            let castling_squares =
+                castling::get_squares(&last_move).expect("Last move was castling");
             self.squares[castling_squares.rook_start_index] = Some(Piece {
                 kind: Kind::Rook,
                 color,
             });
             self.squares[castling_squares.rook_target_index] = None;
         }
-
-        Ok(())
     }
 
     /// Set the algorith of the board to [`Unmove`] or [`Clone`.]
@@ -791,16 +771,17 @@ impl Board {
     /// This function will return an error if move generation fails,
     /// if [`mov`] is illegal, or if the player has no king.
     ///
-    pub fn play_legal_move(&mut self, mov: Option<&Move>) -> Result<(), Error> {
-        if let Some(mov) = mov { self.make_move(mov)? } else {
+    pub fn play_legal_move(&mut self, mov: Option<&Move>) {
+        if let Some(mov) = mov {
+            self.make_move(mov)
+        } else {
             let king_index = self.state.king_indices.get(self.state.turn);
-            if self.is_attacked(&[king_index], self.state.turn)? {
+            if self.is_attacked(&[king_index], self.state.turn) {
                 self.state.game_state = GameState::Victory(self.state.turn.opposite());
             } else {
                 self.state.game_state = GameState::Draw;
             }
         };
-        Ok(())
     }
 
     pub fn squares(&self) -> [Option<Piece>; 64] {
@@ -819,35 +800,31 @@ impl Board {
     /// A [`depth`] of 0 gives 1, and a depth of 1 gives the current number of legal moves.
     ///
     /// Only requires a mutable reference when the [`unmove`] algorithm is being used.
-    ///
-    /// # Errors
-    ///
-    /// This function will return an error if move generation fails.
-    pub fn depth_num_positions(&mut self, depth: i32) -> Result<u32, Error> {
+    pub fn depth_num_positions(&mut self, depth: i32) -> u32 {
         if depth <= 0 {
-            return Ok(1);
+            return 1;
         }
-        let moves = self.gen_legal_moves()?;
+        let moves = self.gen_legal_moves();
         let mut num_positions: u32 = 0;
 
         match self.algorithm() {
             Algorithm::Clone => {
                 for mov in &moves {
                     let mut board = self.clone();
-                    board.make_move(mov)?;
-                    num_positions += board.depth_num_positions(depth - 1)?;
+                    board.make_move(mov);
+                    num_positions += board.depth_num_positions(depth - 1);
                 }
             }
             Algorithm::Unmove => {
                 for mov in &moves {
-                    self.make_move(mov)?;
-                    num_positions += self.depth_num_positions(depth - 1)?;
-                    self.unmake_move()?;
+                    self.make_move(mov);
+                    num_positions += self.depth_num_positions(depth - 1);
+                    self.unmake_move();
                 }
             }
         }
 
-        Ok(num_positions)
+        num_positions
     }
 
     // TODO: Unwrap functions that (if move logic is correct) should never error,
@@ -862,39 +839,13 @@ impl Board {
     /// Panics if .
     pub fn new() -> Self {
         Self::from_chars(&[
-            'r','n','b','q','k','b','n','r',
-            'p','p','p','p','p','p','p','p',
-            ' ',' ',' ',' ',' ',' ',' ',' ',
-            ' ',' ',' ',' ',' ',' ',' ',' ',
-            ' ',' ',' ',' ',' ',' ',' ',' ',
-            ' ',' ',' ',' ',' ',' ',' ',' ',
-            'P','P','P','P','P','P','P','P',
-            'R','N','B','Q','K','B','N','R',
-        ]).unwrap()
+            'r', 'n', 'b', 'q', 'k', 'b', 'n', 'r', 'p', 'p', 'p', 'p', 'p', 'p', 'p', 'p', ' ',
+            ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+            ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'P', 'P', 'P',
+            'P', 'P', 'P', 'P', 'P', 'R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R',
+        ])
+        .unwrap()
     }
-
-    /// Returns a playable board at the first move, except with position specified by [`chars`.]
-    ///
-    /// Each element in [`chars`] may be one of ('k', 'q', 'r', 'b', 'n', 'p', ' '),
-    /// with uppercase denoting white, lowercase denoting black, and ' ' denoting empty.
-    ///
-    /// # Errors
-    ///
-    /// This function will return an error if [`chars`] contains an invalid character.
-    ///
-    /// # Examples
-    /// ```
-    /// let mut board = Playable::from_chars(&[
-    ///     'r','n','b','q','k','b','n','r',
-    ///     'p','p','p','p','p','p','p','p',
-    ///     ' ',' ',' ',' ',' ',' ',' ',' ',
-    ///     ' ',' ',' ',' ',' ',' ',' ',' ',
-    ///     ' ',' ',' ',' ',' ',' ',' ',' ',
-    ///     ' ',' ',' ',' ',' ',' ',' ',' ',
-    ///     'P','P','P','P','P','P','P','P',
-    ///     'R','N','B','Q','K','B','N','R',
-    /// ])?;
-    /// ```
 
     /// Returns the current position and state in FEN notation.
     /// See: [Forsyth-Edwards_Notation](https://en.wikipedia.org/wiki/Forsyth-Edwards_Notation)
@@ -935,31 +886,27 @@ impl Board {
     ///
     /// This function will return an error if a move in [`moves`] attempts to move
     /// from an empty square.
-    pub fn display_moves(&self, moves: &[Move], shown_pieces: Vec<Kind>) -> Result<(), Error> {
+    pub fn display_moves(&self, moves: &[Move], shown_pieces: Vec<Kind>) {
         Move::dbg_moves(
             moves
                 .iter()
                 .map(|&m| {
                     if shown_pieces.is_empty() {
-                        return Ok(Some(m));
+                        return Some(m);
                     }
-                    let piece_kind = match self.squares()[m.start_index] {
-                        Some(piece) => piece.kind,
-                        None => return Err(Error::MoveEmptySquare),
-                    };
+                    let piece_kind = self.squares()[m.start_index]
+                        .expect("Generated moves were legal")
+                        .kind;
                     if shown_pieces.contains(&piece_kind) {
-                        return Ok(Some(m));
+                        return Some(m);
                     }
-                    Ok(None)
+                    None
                 })
-                .collect::<Result<Vec<Option<_>>, Error>>()?
-                .into_iter()
                 .flatten()
                 .collect::<Vec<_>>()
                 .as_slice(),
             &self.squares(),
         );
-        Ok(())
     }
 
     /// Returns the index of the [`color`'s] king.
@@ -988,10 +935,9 @@ impl Board {
     /// # Errors
     ///
     /// This function will return an error if move generation fails.
-    pub fn gen_and_display_moves(&mut self) -> Result<(), Error> {
-        let moves = self.gen_legal_moves()?;
-        self.display_moves(&moves, vec![])?;
-        Ok(())
+    pub fn gen_and_display_moves(&mut self) {
+        let moves = self.gen_legal_moves();
+        self.display_moves(&moves, vec![]);
     }
 
     /// Move piece from [`start_index`] to [`target_index`.]
@@ -1007,9 +953,9 @@ impl Board {
         promotion_kind: Option<Kind>,
     ) -> Result<(), Error> {
         if let Some(kind) = promotion_kind {
-            self.make_move(&Move::new(start_index, target_index).set_promotion_kind(kind))?;
+            self.make_move(&Move::new(start_index, target_index).set_promotion_kind(kind));
         } else {
-            self.make_move(&Move::new(start_index, target_index))?;
+            self.make_move(&Move::new(start_index, target_index));
         }
         Ok(())
     }
@@ -1022,11 +968,7 @@ impl Board {
     ///
     /// This function will return an error if move generation fails.
     pub fn num_legal_moves(&mut self) -> Result<usize, Error> {
-        Ok(self
-            .gen_legal_moves()?
-            .into_iter()
-            .collect::<Vec<_>>()
-            .len())
+        Ok(self.gen_legal_moves().into_iter().collect::<Vec<_>>().len())
     }
 
     /// A debugging tool that displays the number of possible positions after [`depth`]
@@ -1043,7 +985,7 @@ impl Board {
         if depth <= 0 {
             return Ok(0);
         }
-        let moves = self.gen_legal_moves()?;
+        let moves = self.gen_legal_moves();
 
         let mut total_positions: u32 = 0;
 
@@ -1051,13 +993,13 @@ impl Board {
             let num_moves = match self.algorithm() {
                 Algorithm::Clone => {
                     let mut board = self.clone();
-                    board.make_move(&mov)?;
-                    board.depth_num_positions(depth - 1)?
+                    board.make_move(&mov);
+                    board.depth_num_positions(depth - 1)
                 }
                 Algorithm::Unmove => {
-                    self.make_move(&mov)?;
-                    let n = self.depth_num_positions(depth - 1)?;
-                    self.unmake_move()?;
+                    self.make_move(&mov);
+                    let n = self.depth_num_positions(depth - 1);
+                    self.unmake_move();
                     n
                 }
             };
@@ -1087,25 +1029,19 @@ impl Board {
 
     /// Play a random game up to [`move_limit`] moves.
     /// Will leave the board in the last position of the game.
-    ///
-    /// # Errors
-    ///
-    /// This function will return an error if move generation fails
-    // fn play_random_game(&mut self, move_limit: u32) -> Result<GameState, Error>;
     pub fn play_random_game(&mut self, move_limit: u32) -> Result<GameState, Error> {
         use rand::{seq::SliceRandom, thread_rng};
         for _ in 0..move_limit {
-            let moves = self.gen_legal_moves()?;
+            let moves = self.gen_legal_moves();
 
             let mut rng = thread_rng();
             let mov = moves.choose(&mut rng);
             // let mov = moves.into_iter().next();
-            self.play_legal_move(mov)?;
+            self.play_legal_move(mov);
             if self.state().game_state != GameState::Playing {
                 break;
             }
         }
         Ok(self.state().game_state)
     }
-
 }
