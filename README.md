@@ -5,3 +5,11 @@ A chess engine/library for me to optimize, written in Rust.
 - Run the `cargo test  --package tnewt_board` to run the test suite for board logic correctness.
   - Compares the number of legal positions at certain depths for well-known edge cases against known values.
 - Run `cargo bench` to run benchmarks for position and legal move generation.
+
+# Future optimizations
+- Increase memory reuse/reduce allocations when traversing position tree
+- Optimize memory footprint of board state
+- Implement bitboards & magic bitboards
+
+# Future project direction
+- Implement an evaluation function and alpha-beta pruning for a fully-fledged chess engine
